@@ -1,7 +1,8 @@
 const STAFF = ["武", "定", "好", "青", "山", "香"];
 const DEFAULT_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbzSJtBERIufam9XMAFMmnsckChiNhTozP8gxmJXKh4rODbWFD-922q6-2Tato8DdkpCjQ/exec";
+  "https://script.google.com/macros/s/AKfycbyHvLlQWH5W2LB5opOKhFQdXTYUbisUOMFbu0qka3bzXH-DYQU0xB1BSJSjyqXWPZ3YdA/exec";
 const OLD_SCRIPT_URLS = [
+  "https://script.google.com/macros/s/AKfycbzSJtBERIufam9XMAFMmnsckChiNhTozP8gxmJXKh4rODbWFD-922q6-2Tato8DdkpCjQ/exec",
   "https://script.google.com/macros/s/AKfycbyPbepBNl6WsSeZRryOTu0zeZh4fwHOgAncKSsq6XYrBaO89AxzdGBZrfmEqXMwUFIBiQ/exec",
   "https://script.google.com/macros/s/AKfycbz--U2auMzgVqFhYQOF2wf6UEje6u2KZp7rAIvC-0XJcRdYjlTufVcZMI-lAKRWwRiGpg/exec",
   "https://script.google.com/macros/s/AKfycbwW74vDGmEchQGcwCOY-D7CVyC6JR7OnmUVAhLG9ewG46IT1qb5sbQaBTwcXa6wrWGJIg/exec",
