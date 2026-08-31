@@ -1,0 +1,110 @@
+:root {
+  --bg: #f4f1ea;
+  --card: #fffdf8;
+  --ink: #1c2a22;
+  --muted: #5b6b62;
+  --line: #d8d2c4;
+  --green: #1b5e3b;
+  --sans: system-ui, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 16px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.app {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom));
+}
+
+.eyebrow { margin: 0; color: var(--muted); font-size: 0.8rem; }
+h1 { margin: 0.2rem 0 0; font-size: 1.45rem; }
+.now-time {
+  margin: 0.45rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.02em;
+}
+h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
+.nav { margin: 0.35rem 0 0; }
+.nav a { color: var(--green); }
+
+.chips, .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip, .choice {
+  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.chip.on, .choice.on {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.submit {
+  width: 100%;
+  margin-top: 1.2rem;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--green);
+  border: 0;
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  cursor: pointer;
+}
+
+.status { min-height: 1.5rem; color: var(--muted); }
+.status.ok { color: var(--green); }
+.status.err { color: #8a1f1f; }
+
+.setup {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+
+.setup input, .setup label {
+  display: block;
+  width: 100%;
+}
+
+.setup input, .fields input {
+  margin: 0.35rem 0 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  font: inherit;
+}
+
+.fields label { display: block; margin-top: 0.6rem; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: var(--card);
+}
+
+th, td {
+  border: 1px solid var(--line);
+  padding: 0.4rem 0.45rem;
+  text-align: left;
+}

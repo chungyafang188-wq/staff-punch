@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>員工出勤統計</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <p class="eyebrow">會計</p>
+        <h1>員工出勤統計</h1>
+        <p class="nav"><a href="./index.html">回打卡</a></p>
+      </header>
+
+      <div class="fields">
+        <label>出勤起
+          <input id="from" type="date" />
+        </label>
+        <label>出勤迄
+          <input id="to" type="date" />
+        </label>
+      </div>
+
+      <section>
+        <h2>員工姓名（可複選）</h2>
+        <div id="names" class="chips"></div>
+      </section>
+
+      <button type="button" id="run" class="submit">統計並寫入「員工出勤統計表」</button>
+      <p id="status" class="status"></p>
+      <div id="result"></div>
+
+      <details class="setup">
+        <summary>老闆設定</summary>
+        <p>與打卡頁使用同一個 Apps Script 網址。統計結果會寫到另一份試算表，名稱必須是「員工出勤統計表」。</p>
+        <label>腳本網址
+          <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+        </label>
+        <button type="button" id="saveUrl">儲存網址</button>
+      </details>
+    </div>
+    <script src="./staff.js"></script>
+    <script src="./stats.js"></script>
+  </body>
+</html>

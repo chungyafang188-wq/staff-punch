@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b5e3b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>員工打卡</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <p class="eyebrow">員工打卡</p>
+        <h1>選擇姓名後打卡</h1>
+        <p id="now" class="now-time" aria-live="polite">現在時間 --</p>
+        <p class="nav"><a href="./stats.html">會計出勤統計</a></p>
+      </header>
+
+      <section>
+        <h2>員工</h2>
+        <div id="names" class="chips"></div>
+      </section>
+
+      <section>
+        <h2>上班／下班</h2>
+        <div class="row">
+          <button type="button" class="choice" data-kind="type" data-value="上班">上班</button>
+          <button type="button" class="choice" data-kind="type" data-value="下班">下班</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>區域</h2>
+        <div class="row">
+          <button type="button" class="choice" data-kind="area" data-value="田間">田間</button>
+          <button type="button" class="choice" data-kind="area" data-value="工廠">工廠</button>
+        </div>
+      </section>
+
+      <button type="button" id="submit" class="submit">送出打卡</button>
+      <p id="status" class="status"></p>
+
+      <details class="setup">
+        <summary>老闆設定（Google 試算表）</summary>
+        <p>不必提供 Google 密碼。把 Apps Script「網頁應用程式」網址貼上，只存在這台裝置。</p>
+        <label>打卡紀錄腳本網址
+          <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+        </label>
+        <button type="button" id="saveUrl">儲存網址</button>
+      </details>
+    </div>
+    <script src="./staff.js"></script>
+    <script src="./punch.js"></script>
+  </body>
+</html>
