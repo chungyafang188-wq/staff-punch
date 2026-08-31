@@ -889,6 +889,54 @@ function itemPunchStatus(dayRows, area, type) {
   return { label: "已確認", kind: "done", time, id: hit.id || "" };
 }
 
+function sortedAreaHits(dayRows, area, type) {
+  return dayRows
+    .filter((row) => sameArea(row.area, area) && String(row.type || "").trim() === type)
+    .slice()
+    .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+}
+
+function pairAreaShifts(dayRows, area) {
+  const ins = sortedAreaHits(dayRows, area, "上班");
+  const outs = sortedAreaHits(dayRows, area, "下班");
+  const len = Math.max(ins.length, outs.length);
+  const pairs = [];
+  for (let i = 0; i < len; i++) {
+    pairs.push({ inn: ins[i] || null, out: outs[i] || null });
+  }
+  return pairs;
+}
+
+function itemFromRow(row, type, area, seg) {
+  if (!row) return { label: "須補卡", kind: "need", time: "", id: "", type, area, seg };
+  const st = String(row.status || "").trim();
+  const src = String(row.source || "").trim();
+  const time = hm(row.time);
+  if (st === "待確認" || (st === "" && src !== "會計補打卡")) {
+    return { label: "待確認", kind: "pending", time, id: row.id || "", type, area, seg };
+  }
+  return { label: "已確認", kind: "done", time, id: row.id || "", type, area, seg };
+}
+
+function lunchOptFromRow(row) {
+  const lunch = String((row && row.lunch) || "").trim();
+  if (lunch === "0.5") return "0.5";
+  if (lunch === "1") return "1";
+  return "無";
+}
+
+function appendNeedInput(td, type, area, seg) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "need-input";
+  input.autocomplete = "off";
+  input.placeholder = "18:00 或 1800";
+  input.dataset.makeupType = type;
+  input.dataset.makeupArea = area;
+  input.dataset.seg = String(seg);
+  td.append(input);
+}
+
 function isNoWorkArea(dayRows, area) {
   return dayRows.some((row) => {
     if (String(row.type || "").trim() !== "無上班" || !isPayCounted(row)) return false;
@@ -1121,6 +1169,41 @@ function appendLunchChoices(cell, id, selectedOpt, extraIds) {
   });
 }
 
+function appendExtraTimeInput(td, type, area) {
+  const extra = document.createElement("input");
+  extra.type = "text";
+  extra.className = "need-input extra-in";
+  extra.autocomplete = "off";
+  extra.placeholder = type === "上班" ? "再加一筆上班" : "再加一筆下班";
+  extra.dataset.makeupType = type;
+  extra.dataset.makeupArea = area;
+  extra.dataset.extraShift = "1";
+  td.append(extra);
+}
+
+function appendLunchField(cell, area, selectedOpt, seg) {
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = "扣" + (area === "田間" ? "田區" : area) + "工時";
+  cell.append(hint);
+  const sel = document.createElement("select");
+  sel.className = "lunch-input";
+  sel.dataset.makeupArea = area;
+  if (seg != null) sel.dataset.seg = String(seg);
+  [
+    ["無", "無午休"],
+    ["0.5", "0.5小時"],
+    ["1", "1小時"],
+  ].forEach(([value, label]) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = label;
+    sel.append(opt);
+  });
+  sel.value = selectedOpt || "無";
+  cell.append(sel);
+}
+
 function addLine(td, text, className) {
   const line = document.createElement("div");
   line.className = className || "punch-line";
@@ -1142,6 +1225,7 @@ function appendStatusCell(td, item, dayRows) {
     input.placeholder = "18:00 或 1800";
     input.dataset.makeupType = item.type;
     input.dataset.makeupArea = item.area;
+    if (item.seg != null) input.dataset.seg = String(item.seg);
     td.append(input);
     return;
   }
@@ -1197,62 +1281,107 @@ function renderRoster(who, rows, iso) {
   const table = document.createElement("table");
   table.className = "punch-table roster-table " + (done ? "roster-all-ok" : "roster-has-need");
   table.innerHTML =
-    "<thead><tr><th>區域</th><th>上班</th><th>下班</th><th>午休（扣該區工時）</th></tr></thead>";
+    "<thead><tr><th>區域／段</th><th>上班</th><th>下班</th><th>午休（扣該段工時）</th></tr></thead>";
   const tbody = document.createElement("tbody");
   ["田間", "工廠"].forEach((area) => {
-    const tr = document.createElement("tr");
-    const nameTd = document.createElement("td");
-    const areaName = document.createElement("div");
-    areaName.textContent = area === "田間" ? "田區" : area;
-    nameTd.append(areaName);
-    if (!isNoWorkArea(dayRows, area) && !areaHasPunch(dayRows, area)) {
-      const none = document.createElement("button");
-      none.type = "button";
-      none.className = "choice";
-      none.textContent = "無上班";
-      none.addEventListener("click", () => markNoWork(iso, person, area));
-      nameTd.append(none);
-    }
-    tr.append(nameTd);
-    ["上班", "下班"].forEach((type) => {
-      const item = itemPunchStatus(dayRows, area, type);
-      item.area = area;
-      item.type = type;
+    const areaLabel = area === "田間" ? "田區" : area;
+    if (isNoWorkArea(dayRows, area)) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.textContent = areaLabel;
+      tr.append(nameTd);
       const td = document.createElement("td");
-      appendStatusCell(td, item, dayRows);
+      td.colSpan = 3;
+      td.textContent = "無上班";
       tr.append(td);
-    });
-    const lunch = lunchAreaStatus(dayRows, area);
-    const lunchTd = document.createElement("td");
-    if (lunch.kind === "pending" && lunch.id) {
-      const hint = document.createElement("p");
-      hint.className = "hint";
-      hint.textContent = "扣" + (area === "田間" ? "田區" : area) + "工時";
-      lunchTd.append(hint);
-      appendLunchChoices(
-        lunchTd,
-        lunch.id,
-        guessedLunchOpt(dayRows, area),
-        [lastPunchRow(dayRows, area, "下班") && lastPunchRow(dayRows, area, "下班").id].filter(Boolean),
-      );
-    } else if (lunch.kind === "need") {
-      lunchTd.textContent = lunch.label;
-    } else {
-      lunchTd.textContent = lunch.label + "（扣" + area + "）";
+      tbody.append(tr);
+      return;
     }
-    tr.append(lunchTd);
-    tbody.append(tr);
+    const pairs = pairAreaShifts(dayRows, area);
+    const rows = pairs.length ? pairs : [{ inn: null, out: null }];
+    rows.forEach((pair, index) => {
+      const tr = document.createElement("tr");
+      tr.dataset.area = area;
+      const nameTd = document.createElement("td");
+      const label = document.createElement("div");
+      label.className = "seg-label";
+      label.textContent = areaLabel + " 第" + (index + 1) + "筆";
+      nameTd.append(label);
+      if (index === 0 && !areaHasPunch(dayRows, area)) {
+        const none = document.createElement("button");
+        none.type = "button";
+        none.className = "choice";
+        none.textContent = "無上班";
+        none.addEventListener("click", () => markNoWork(iso, person, area));
+        nameTd.append(none);
+      }
+      tr.append(nameTd);
+      const innItem = itemFromRow(pair.inn, "上班", area, index);
+      const outItem = itemFromRow(pair.out, "下班", area, index);
+      [innItem, outItem].forEach((item) => {
+        const td = document.createElement("td");
+        appendStatusCell(td, item, dayRows);
+        tr.append(td);
+      });
+      const lunchTd = document.createElement("td");
+      appendLunchField(lunchTd, area, lunchOptFromRow(pair.inn), index);
+      const lunchSel = lunchTd.querySelector("select");
+      if (lunchSel && pair.inn && pair.inn.id) lunchSel.dataset.punchId = String(pair.inn.id);
+      tr.append(lunchTd);
+      tbody.append(tr);
+    });
+    const addTr = document.createElement("tr");
+    const addTd = document.createElement("td");
+    addTd.colSpan = 4;
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "choice";
+    addBtn.textContent = "再加一筆" + areaLabel + "上下班";
+    addBtn.addEventListener("click", () => {
+      const next = tbody.querySelectorAll(`tr[data-area="${area}"]`).length;
+      const tr = document.createElement("tr");
+      tr.dataset.area = area;
+      tr.dataset.extra = "1";
+      const nameTd = document.createElement("td");
+      const label = document.createElement("div");
+      label.className = "seg-label";
+      label.textContent = areaLabel + " 第" + (next + 1) + "筆";
+      nameTd.append(label);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "choice shift-remove";
+      del.textContent = "刪除";
+      del.addEventListener("click", () => {
+        tr.remove();
+        tbody.querySelectorAll(`tr[data-area="${area}"]`).forEach((row, i) => {
+          const cap = row.querySelector(".seg-label");
+          if (cap) cap.textContent = areaLabel + " 第" + (i + 1) + "筆";
+        });
+      });
+      nameTd.append(del);
+      tr.append(nameTd);
+      ["上班", "下班"].forEach((type) => {
+        const td = document.createElement("td");
+        appendNeedInput(td, type, area, next);
+        tr.append(td);
+      });
+      const lunchTd = document.createElement("td");
+      appendLunchField(lunchTd, area, "無", next);
+      tr.append(lunchTd);
+      addTr.before(tr);
+    });
+    addTd.append(addBtn);
+    addTr.append(addTd);
+    tbody.append(addTr);
   });
   table.append(tbody);
   box.append(table);
-  if (!done) {
-    const send = document.createElement("button");
-    send.type = "button";
-    send.className = "submit";
-    send.textContent = "送出補卡時間";
-    send.addEventListener("click", () => submitPersonMakeup(iso, person, wrap));
-    box.append(send);
-  }
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "submit";
+  send.textContent = "送出補卡時間";
+  send.addEventListener("click", () => submitPersonMakeup(iso, person, box, dayRows));
+  box.append(send);
   wrap.append(box);
 }
 
@@ -1279,7 +1408,14 @@ async function confirmRosterItems(items, quiet) {
   }
 }
 
-async function submitPersonMakeup(iso, person, wrap) {
+function lunchFieldValue(wrap, area, seg) {
+  const sel =
+    wrap.querySelector(`select.lunch-input[data-makeup-area="${area}"][data-seg="${seg}"]`) ||
+    wrap.querySelector(`select.lunch-input[data-makeup-area="${area}"]`);
+  return lunchValue(sel ? sel.value : "無");
+}
+
+async function submitPersonMakeup(iso, person, wrap, dayRows) {
   const entries = [];
   wrap.querySelectorAll(".need-input").forEach((input) => {
     const raw = input.value.trim();
@@ -1291,24 +1427,26 @@ async function submitPersonMakeup(iso, person, wrap) {
     }
     const type = input.dataset.makeupType || "";
     const area = input.dataset.makeupArea || "";
-    entries.push({ type, time, area });
+    const seg = input.dataset.seg || "";
+    entries.push({ type, time, area, seg });
   });
   if (entries.error) {
     setStatus(makeupStatusEl, entries.error, "err");
     return;
   }
-  const byArea = {};
   entries.forEach((entry) => {
-    if (!byArea[entry.area]) byArea[entry.area] = {};
-    byArea[entry.area][entry.type] = entry;
-  });
-  Object.keys(byArea).forEach((area) => {
-    const inn = byArea[area]["上班"];
-    const out = byArea[area]["下班"];
-    if (inn) inn.lunchHours = lunchValue(guessedLunchFromTimes(inn.time, out && out.time));
+    if (entry.type === "上班") entry.lunchHours = lunchFieldValue(wrap, entry.area, entry.seg);
   });
   if (!entries.length) {
-    setStatus(makeupStatusEl, "請在須補卡的格子填時間，或按該區無上班", "err");
+    const lunchItems = [];
+    wrap.querySelectorAll("select.lunch-input[data-punch-id]").forEach((sel) => {
+      lunchItems.push({ id: sel.dataset.punchId, lunchHours: lunchValue(sel.value) });
+    });
+    if (!lunchItems.length) {
+      setStatus(makeupStatusEl, "請填時間，或按該區無上班", "err");
+      return;
+    }
+    await confirmRosterItems(lunchItems);
     return;
   }
   setStatus(makeupStatusEl, "正在補卡…");

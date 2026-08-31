@@ -368,6 +368,12 @@ th, td {
 .person-day .need-input {
   width: 6.5rem;
   font: inherit;
+  display: block;
+  margin-top: 0.35rem;
+}
+.person-day .lunch-input {
+  font: inherit;
+  margin-top: 0.25rem;
 }
 .punch-line {
   line-height: 1.35;
