@@ -1284,10 +1284,26 @@ async function loadRoster() {
     rosterRows = Array.isArray(data.rows) ? data.rows : [];
     const person = selectedStaff();
     renderRoster(person, rosterRows, iso);
+    const sheetName = data.sheetName || "打卡";
+    const scanned = Number(data.scanned || 0);
     if (person && !dayHasRecord(dayRowsFor(rosterRows, iso, person))) {
-      setStatus(makeupStatusEl, person + " 這天試算表沒有打卡列。請核對日期，或把最新 Code.gs 發新版本。", "err");
+      if (scanned === 0) {
+        setStatus(
+          makeupStatusEl,
+          "分頁「" + sheetName + "」是空的，所以看起來都沒打卡。請把最新 Code.gs 貼上並發新版本（會自動找有「日期／員工」的分頁）。",
+          "err",
+        );
+      } else if (!rosterRows.length) {
+        setStatus(
+          makeupStatusEl,
+          "已讀「" + sheetName + "」共 " + scanned + " 列，但對不到 " + slashDate(iso) + "。請看日期欄是不是同一天。",
+          "err",
+        );
+      } else {
+        setStatus(makeupStatusEl, person + " " + slashDate(iso) + " 沒有打卡，可在下方補卡或按無上班。", "ok");
+      }
     } else if (person) {
-      setStatus(makeupStatusEl, person + " " + slashDate(iso) + " 已載入。", "ok");
+      setStatus(makeupStatusEl, person + " " + slashDate(iso) + " 已載入（" + sheetName + "）。", "ok");
     }
   } catch (err) {
     wrap.innerHTML = "";

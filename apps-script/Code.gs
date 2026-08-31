@@ -24,15 +24,52 @@ function punchBook() {
   return ss;
 }
 
-function punchSheet() {
-  const ss = punchBook();
-  let sh = ss.getSheetByName(PUNCH_SHEET);
-  if (!sh) {
-    sh = ss.getSheets()[0];
-    sh.setName(PUNCH_SHEET);
+function sheetHeaderRow(sh) {
+  const cols = Math.max(1, Math.min(sh.getLastColumn() || 1, 16));
+  return sh.getRange(1, 1, 1, cols).getDisplayValues()[0].map(function (h) {
+    return String(h || "").trim();
+  });
+}
+
+function headerLooksLikePunch(header) {
+  const joined = header.join("|");
+  return (
+    joined.indexOf("日期") >= 0 &&
+    (joined.indexOf("員工") >= 0 || joined.indexOf("姓名") >= 0 || joined.indexOf("類型") >= 0)
+  );
+}
+
+function findPunchSheet(ss) {
+  const sheets = ss.getSheets();
+  const candidates = [];
+  for (let i = 0; i < sheets.length; i++) {
+    const sh = sheets[i];
+    if (!headerLooksLikePunch(sheetHeaderRow(sh))) continue;
+    candidates.push(sh);
   }
+  candidates.sort(function (a, b) {
+    const dr = b.getLastRow() - a.getLastRow();
+    if (dr !== 0) return dr;
+    if (a.getName() === PUNCH_SHEET) return -1;
+    if (b.getName() === PUNCH_SHEET) return 1;
+    return 0;
+  });
+  if (candidates.length) return candidates[0];
+  const named = ss.getSheetByName(PUNCH_SHEET);
+  if (named) return named;
+  return ss.insertSheet(PUNCH_SHEET);
+}
+
+function ensurePunchHeaders(sh) {
+  if (headerLooksLikePunch(sheetHeaderRow(sh))) return;
+  if (sh.getLastRow() > 1) return;
   sh.getRange(1, 1, 1, PUNCH_HEADERS.length).setValues([PUNCH_HEADERS]);
   sh.getRange("A:B").setNumberFormat("@");
+}
+
+function punchSheet() {
+  const sh = findPunchSheet(punchBook());
+  ensurePunchHeaders(sh);
   return sh;
 }
 
@@ -223,16 +260,28 @@ function writePunchCells(sh, dateText, timeText, name, type, area, source, lunch
   ]);
 }
 
-function cellDayKey(dateCell) {
+function parseDayKeyFromText(text) {
+  const s = String(text || "")
+    .trim()
+    .replace(/-/g, "/");
+  let m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (m) return m[1] + "-" + pad2(Number(m[2])) + "-" + pad2(Number(m[3]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + "-" + pad2(Number(m[1])) + "-" + pad2(Number(m[2]));
+  return "";
+}
+
+function cellDayKey(dateCell, displayText) {
+  const fromDisplay = parseDayKeyFromText(displayText);
+  if (fromDisplay) return fromDisplay;
   if (dateCell instanceof Date) {
     return Utilities.formatDate(dateCell, TZ, "yyyy-MM-dd");
   }
-  const s = String(dateCell || "")
-    .trim()
-    .replace(/-/g, "/");
-  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (!m) return "";
-  return m[1] + "-" + pad2(Number(m[2])) + "-" + pad2(Number(m[3]));
+  if (typeof dateCell === "number" && dateCell > 20000 && dateCell < 80000) {
+    const utc = new Date(Math.round((dateCell - 25569) * 86400 * 1000));
+    return Utilities.formatDate(utc, "UTC", "yyyy-MM-dd");
+  }
+  return parseDayKeyFromText(dateCell);
 }
 
 function cellTimeText(timeCell) {
@@ -564,11 +613,15 @@ function handleListPunches(body) {
   const names = Array.isArray(body.names) ? body.names.map(String) : [];
   const fromKey = String(body.from);
   const toKey = String(body.to);
-  const values = punchSheet().getDataRange().getValues();
-  const header = values[0].map(function (h) {
+  const sh = punchSheet();
+  const range = sh.getDataRange();
+  const values = range.getValues();
+  const displays = range.getDisplayValues();
+  const header = (displays[0] || []).map(function (h) {
     return String(h || "").trim();
   });
   const iStatus = colIndex(header, "狀態");
+  const iName = colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : colIndex(header, "姓名");
   const rows = [];
   const nameSet = {};
   names.forEach(function (n) {
@@ -576,16 +629,19 @@ function handleListPunches(body) {
   });
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    const who = String(row[colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : 1] || "").trim();
+    const who = String(row[iName >= 0 ? iName : 1] || "").trim();
     if (names.length && !nameSet[who]) continue;
     const iDate = colIndex(header, "日期");
     const iTime = colIndex(header, "時間");
-    const dateCell = iDate >= 0 ? row[iDate] : row[0];
+    const dateIdx = iDate >= 0 ? iDate : 0;
+    const dateCell = row[dateIdx];
+    const dateDisplay = displays[i] ? displays[i][dateIdx] : "";
     const timeCell = iTime >= 0 ? row[iTime] : "";
-    const dayKey = cellDayKey(dateCell);
+    const timeDisplay = iTime >= 0 && displays[i] ? displays[i][iTime] : "";
+    const dayKey = cellDayKey(dateCell, dateDisplay);
     if (!dayKey) continue;
     if (dayKey < fromKey || dayKey > toKey) continue;
-    const timeText = cellTimeText(timeCell);
+    const timeText = cellTimeText(timeCell) || cellTimeText(timeDisplay);
     rows.push({
       id: i + 1,
       date: slashFromDayKey(dayKey),
@@ -598,7 +654,13 @@ function handleListPunches(body) {
       lunch: colIndex(header, "午休") >= 0 ? String(row[colIndex(header, "午休")] || "") : "",
     });
   }
-  return json({ ok: true, rows: rows, spreadsheetUrl: punchBook().getUrl() });
+  return json({
+    ok: true,
+    rows: rows,
+    sheetName: sh.getName(),
+    scanned: Math.max(0, values.length - 1),
+    spreadsheetUrl: punchBook().getUrl(),
+  });
 }
 
 function handleVoidPunch(body) {
