@@ -177,11 +177,15 @@ function punchStatusForSource(source) {
 }
 
 function writePunchRow(sh, when, name, type, area, source, lunchHours) {
+  writePunchCells(sh, formatDate(when), formatTime(when), name, type, area, source, lunchHours);
+}
+
+function writePunchCells(sh, dateText, timeText, name, type, area, source, lunchHours) {
   const src = source || "員工打卡";
   const lunchText = type === "上班" && lunchHours != null ? lunchLabel(lunchHours) : "";
   sh.appendRow([
-    formatDate(when),
-    formatTime(when),
+    dateText,
+    timeText,
     name,
     type,
     area,
@@ -189,6 +193,29 @@ function writePunchRow(sh, when, name, type, area, source, lunchHours) {
     punchStatusForSource(src),
     lunchText,
   ]);
+}
+
+function cellDayKey(dateCell) {
+  if (dateCell instanceof Date) {
+    return Utilities.formatDate(dateCell, TZ, "yyyy-MM-dd");
+  }
+  const s = String(dateCell || "")
+    .trim()
+    .replace(/-/g, "/");
+  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return "";
+  return m[1] + "-" + pad2(Number(m[2])) + "-" + pad2(Number(m[3]));
+}
+
+function cellTimeText(timeCell) {
+  if (timeCell instanceof Date) return formatTime(timeCell);
+  let t = String(timeCell || "").trim();
+  if (/^\d{1,2}:\d{2}$/.test(t)) t += ":00";
+  return t || "00:00:00";
+}
+
+function slashFromDayKey(dayKey) {
+  return String(dayKey || "").replace(/-/g, "/");
 }
 
 function handlePunch(body) {
@@ -214,7 +241,7 @@ function handlePunch(body) {
         for (let n = 0; n < names.length; n++) {
           const who = String(names[n] || "").trim();
           if (!who) continue;
-          writePunchRow(sh, when, who, type, area, source, lunchHours);
+          writePunchCells(sh, dateText.replace(/-/g, "/"), String(entry.time || formatTime(when)), who, type, area, source, lunchHours);
           wrote++;
         }
       }
@@ -234,8 +261,14 @@ function handlePunch(body) {
   if (!name || !type || (type !== "無上班" && !area)) {
     return json({ ok: false, error: "缺少姓名、類型或區域" });
   }
-  const when = body.at ? new Date(body.at) : new Date();
-  writePunchRow(sh, when, name, type, area, source);
+  const dateText = String(body.date || "").trim().replace(/-/g, "/");
+  const timeText = String(body.time || "").trim();
+  if (dateText && timeText) {
+    writePunchCells(sh, dateText, /^\d{1,2}:\d{2}$/.test(timeText) ? timeText + ":00" : timeText, name, type, area, source);
+  } else {
+    const when = body.at ? new Date(body.at) : new Date();
+    writePunchRow(sh, when, name, type, area, source);
+  }
   return json({ ok: true, count: 1, spreadsheetUrl: punchBook().getUrl() });
 }
 
@@ -514,27 +547,18 @@ function handleListPunches(body) {
     const row = values[i];
     const who = String(row[colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : 1] || "").trim();
     if (names.length && !nameSet[who]) continue;
-    let when = null;
     const iDate = colIndex(header, "日期");
     const iTime = colIndex(header, "時間");
-    if (iDate >= 0 && iTime >= 0) {
-      const dateCell = row[iDate];
-      const timeCell = row[iTime];
-      if (dateCell instanceof Date) {
-        when = parseWhen(formatDate(dateCell), timeCell instanceof Date ? formatTime(timeCell) : String(timeCell || "00:00:00"));
-      } else {
-        when = parseWhen(dateCell, timeCell || "00:00:00");
-      }
-    } else if (row[0] instanceof Date) {
-      when = row[0];
-    }
-    if (!when) continue;
-    const dayKey = Utilities.formatDate(when, TZ, "yyyy-MM-dd");
+    const dateCell = iDate >= 0 ? row[iDate] : row[0];
+    const timeCell = iTime >= 0 ? row[iTime] : "";
+    const dayKey = cellDayKey(dateCell);
+    if (!dayKey) continue;
     if (dayKey < fromKey || dayKey > toKey) continue;
+    const timeText = cellTimeText(timeCell);
     rows.push({
       id: i + 1,
-      date: formatDate(when),
-      time: formatTime(when),
+      date: slashFromDayKey(dayKey),
+      time: timeText,
       name: who,
       type: String(row[colIndex(header, "類型") >= 0 ? colIndex(header, "類型") : 2] || "").trim(),
       area: String(row[colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3] || ""),

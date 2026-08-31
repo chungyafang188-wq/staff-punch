@@ -64,6 +64,8 @@ document.getElementById("submit").addEventListener("click", async () => {
       type,
       area,
       at: new Date().toISOString(),
+      date: taipeiDateTime().date,
+      time: taipeiDateTime().time,
     });
     const when = taipeiDateTime();
     setStatus(statusEl, `${when.time} 已打卡${type}完成`, "ok");
