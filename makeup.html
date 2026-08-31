@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>會計補打卡</title>
-    <link rel="stylesheet" href="./styles.css?v=17" />
+    <link rel="stylesheet" href="./styles.css?v=18" />
   </head>
   <body>
     <div class="app app-wide">
@@ -21,7 +21,7 @@
 
       <section class="panel">
         <h2>當日確認</h2>
-        <p class="hint">可選單一日期或起迄區間。區間會列出還沒打完、還沒確認的人，點列再進單日補卡。</p>
+        <p class="hint">圈圈：紅＝當天沒資料、橘＝有打卡尚未完成確認、綠＝當天完成。區間只列有資料未完成與「今天」還沒打的。</p>
         <div class="row">
           <button type="button" class="choice" data-makeup-view="day">單一日期</button>
           <button type="button" class="choice on" data-makeup-view="range">起迄區間</button>
@@ -77,6 +77,6 @@
       </details>
     </div>
     <script src="./staff.js?v=4"></script>
-    <script src="./makeup.js?v=24"></script>
+    <script src="./makeup.js?v=25"></script>
   </body>
 </html>

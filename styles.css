@@ -61,10 +61,15 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
   color: #8a1f1f;
   border-color: #c98a8a;
 }
-#makeup-names .chip.ok {
-  background: #c8ead8;
-  color: #14532d;
-  border-color: #8cbfa4;
+#makeup-names .chip.pending {
+  background: #fde7c7;
+  color: #8a4b12;
+  border-color: #e0b06a;
+}
+#makeup-names .chip.on.pending {
+  background: #f5c78a;
+  color: #6b3508;
+  border-color: #c9842a;
 }
 #makeup-names .chip.on {
   box-shadow: 0 0 0 3px var(--ink);

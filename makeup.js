@@ -860,6 +860,36 @@ function personDayDone(dayRows) {
   return ["田間", "工廠"].every((area) => areaDone(dayRows, area));
 }
 
+function dayHasRecord(dayRows) {
+  return dayRows.some((row) => String(row.status || "").trim() !== "作廢");
+}
+
+function personChipKind(dayRows, iso) {
+  if (personDayDone(dayRows)) return "ok";
+  if (dayHasRecord(dayRows)) return "pending";
+  if (iso && iso === todayTaipei()) return "need";
+  return "skip";
+}
+
+function chipKindForPerson(person) {
+  if (makeupView === "range") {
+    const from = makeupFromEl && makeupFromEl.value;
+    const to = makeupToEl && makeupToEl.value;
+    if (!from || !to) return "need";
+    let kind = "ok";
+    eachIso(from, to).forEach((day) => {
+      const k = personChipKind(dayRowsFor(rangeRows, day, person), day);
+      if (k === "skip") return;
+      if (k === "need") kind = "need";
+      else if (k === "pending" && kind === "ok") kind = "pending";
+    });
+    return kind;
+  }
+  const iso = makeupDateEl.value || todayTaipei();
+  const k = personChipKind(dayRowsFor(rosterRows, iso, person), iso);
+  return k === "skip" ? "need" : k;
+}
+
 function dayRowsFor(rows, iso, who) {
   const key = slashDate(iso);
   return rows.filter((row) => {
@@ -870,27 +900,19 @@ function dayRowsFor(rows, iso, who) {
 }
 
 function paintStaffChips() {
-  const iso = makeupDateEl.value || todayTaipei();
   makeupNamesEl.querySelectorAll(".chip").forEach((el) => {
     const person = el.textContent;
-    let ok = true;
-    if (makeupView === "range") {
-      const from = makeupFromEl && makeupFromEl.value;
-      const to = makeupToEl && makeupToEl.value;
-      if (from && to) {
-        ok = eachIso(from, to).every((day) => personDayDone(dayRowsFor(rangeRows, day, person)));
-      }
-    } else {
-      ok = personDayDone(dayRowsFor(rosterRows, iso, person));
-    }
-    el.classList.toggle("need", !ok);
-    el.classList.toggle("ok", ok);
+    const kind = chipKindForPerson(person);
+    el.classList.toggle("need", kind === "need");
+    el.classList.toggle("pending", kind === "pending");
+    el.classList.toggle("ok", kind === "ok");
     el.classList.toggle("on", selectedStaff() === person);
   });
 }
 
-function incompleteReason(dayRows) {
+function incompleteReason(dayRows, iso) {
   if (personDayDone(dayRows)) return "";
+  if (!dayHasRecord(dayRows) && iso !== todayTaipei()) return "";
   const bits = [];
   ["田間", "工廠"].forEach((area) => {
     if (isNoWorkArea(dayRows, area)) return;
@@ -914,7 +936,7 @@ function collectIncomplete() {
   eachIso(from, to).forEach((iso) => {
     STAFF.forEach((person) => {
       if (who && person !== who) return;
-      const reason = incompleteReason(dayRowsFor(rangeRows, iso, person));
+      const reason = incompleteReason(dayRowsFor(rangeRows, iso, person), iso);
       if (reason) items.push({ iso, person, reason });
     });
   });
