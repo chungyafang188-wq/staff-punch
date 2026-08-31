@@ -100,17 +100,7 @@ async function postScript(payload) {
   if (location.protocol === "file:") {
     throw new Error("請不要直接雙擊 HTML。用本機網址打開（例如 http://localhost:3000）再打卡");
   }
-  const endpoint = new URL(url);
-  endpoint.searchParams.set("payload", JSON.stringify(payload));
-  let res;
-  try {
-    res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
-  } catch {
-    throw new Error(
-      "連不到 Google 腳本。請確認：1. 用 http 網址開打卡頁 2. 腳本已部署為「任何人」 3. 改過程式後要「管理部署作業」發新版本",
-    );
-  }
-  const text = await res.text();
+  const text = await fetchScript(url, payload);
   let data;
   try {
     data = JSON.parse(text);
@@ -119,4 +109,28 @@ async function postScript(payload) {
   }
   if (!data.ok) throw new Error(data.error || "送出失敗");
   return data;
+}
+
+async function fetchScript(url, payload) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    if (text && text.indexOf("{") === 0) return text;
+  } catch (_) {}
+  const endpoint = new URL(url);
+  endpoint.searchParams.set("payload", JSON.stringify(payload));
+  let res;
+  try {
+    res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
+  } catch {
+    throw new Error(
+      "連不到 Google 腳本。請確認：1. 用 http 網址開打卡頁 2. 腳本已部署為「任何人」 3. 改過程式後要對「網頁應用程式」發新版本",
+    );
+  }
+  return res.text();
 }

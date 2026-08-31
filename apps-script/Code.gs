@@ -51,17 +51,36 @@ function statsSheet(ss, name) {
   return sh;
 }
 
+function parseBody(raw) {
+  let body = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (typeof body === "string") body = JSON.parse(body);
+  return body || {};
+}
+
+function dispatch(body) {
+  const action = String((body && (body.action || body.cmd)) || "").trim();
+  if (action === "punch") return handlePunch(body);
+  if (action === "stats") return handleStats(body);
+  if (action === "listPunches") return handleListPunches(body);
+  if (action === "voidPunch") return handleVoidPunch(body);
+  if (action === "setLunch" || action === "setlunch" || action === "confirm") {
+    return handleSetLunch(body);
+  }
+  if (action === "ping") return json({ ok: true, version: "setLunch-20260831" });
+  return json({
+    ok: false,
+    error:
+      "未知動作：" +
+      (action || "空") +
+      "。請把完整 Code.gs 貼上後，對「網頁應用程式」按新版本（不要用程式庫網址）",
+  });
+}
+
 function doGet(e) {
   try {
     const raw = e && e.parameter && e.parameter.payload;
     if (!raw) return json({ ok: false, error: "缺少資料" });
-    const body = JSON.parse(raw);
-    if (body.action === "punch") return handlePunch(body);
-    if (body.action === "stats") return handleStats(body);
-    if (body.action === "listPunches") return handleListPunches(body);
-    if (body.action === "voidPunch") return handleVoidPunch(body);
-    if (body.action === "setLunch") return handleSetLunch(body);
-    return json({ ok: false, error: "未知動作" });
+    return dispatch(parseBody(raw));
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
@@ -69,13 +88,12 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const body = JSON.parse(e.postData.contents);
-    if (body.action === "punch") return handlePunch(body);
-    if (body.action === "stats") return handleStats(body);
-    if (body.action === "listPunches") return handleListPunches(body);
-    if (body.action === "voidPunch") return handleVoidPunch(body);
-    if (body.action === "setLunch") return handleSetLunch(body);
-    return json({ ok: false, error: "未知動作" });
+    const raw = e && e.postData && e.postData.contents;
+    if (!raw && e && e.parameter && e.parameter.payload) {
+      return dispatch(parseBody(e.parameter.payload));
+    }
+    if (!raw) return json({ ok: false, error: "缺少資料" });
+    return dispatch(parseBody(raw));
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
@@ -132,8 +150,18 @@ function parseWhen(dateText, timeText) {
   let t = String(timeText || "00:00:00").trim();
   if (/^\d{1,2}:\d{2}$/.test(t)) t += ":00";
   const parsed = new Date(d + " " + t);
-  if (isNaN(parsed.getTime())) return null;
-  return parsed;
+  if (!isNaN(parsed.getTime())) return parsed;
+  const dm = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  const tm = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!dm || !tm) return null;
+  return new Date(
+    Number(dm[1]),
+    Number(dm[2]) - 1,
+    Number(dm[3]),
+    Number(tm[1]),
+    Number(tm[2]),
+    Number(tm[3] || 0),
+  );
 }
 
 function hoursBetween(start, end) {
@@ -236,12 +264,15 @@ function handlePunch(body) {
         const type = String(entry.type || "").trim();
         const area = String(entry.area || body.area || (type === "無上班" ? "－" : "")).trim();
         const lunchHours = parseLunchChoice(entry.lunchHours);
-        if (!when || !type) continue;
+        if (!type) continue;
         if (type !== "無上班" && !area) continue;
+        const timeText = String(entry.time || (when ? formatTime(when) : "00:00:00")).trim();
+        const dateOut = dateText.replace(/-/g, "/");
+        if (!dateOut) continue;
         for (let n = 0; n < names.length; n++) {
           const who = String(names[n] || "").trim();
           if (!who) continue;
-          writePunchCells(sh, dateText.replace(/-/g, "/"), String(entry.time || formatTime(when)), who, type, area, source, lunchHours);
+          writePunchCells(sh, dateOut, timeText, who, type, area, source, lunchHours);
           wrote++;
         }
       }

@@ -263,12 +263,15 @@ STAFF.forEach((person) => {
   btn.addEventListener("click", () => {
     makeupSelected.clear();
     makeupSelected.add(person);
-    if (makeupView === "range") {
-      renderIncompleteList();
-      return;
+    makeupView = "day";
+    if (!makeupDateEl.value) {
+      makeupDateEl.value = (makeupToEl && makeupToEl.value) || todayTaipei();
     }
-    const iso = makeupDateEl.value || todayTaipei();
-    renderRoster(person, rosterRows, iso);
+    syncMakeupViewUi();
+    setStatus(makeupStatusEl, "正在載入 " + person + " 的打卡…");
+    loadRoster().catch((err) => {
+      setStatus(makeupStatusEl, err instanceof Error ? err.message : "無法連線", "err");
+    });
   });
   makeupNamesEl.append(btn);
 });
@@ -1037,7 +1040,7 @@ async function loadIncomplete() {
   }
 }
 
-function appendLunchChoices(cell, id, selectedOpt) {
+function appendLunchChoices(cell, id, selectedOpt, extraIds) {
   const picked = selectedOpt || "無";
   ["無", "0.5", "1"].forEach((opt) => {
     const btn = document.createElement("button");
@@ -1050,7 +1053,11 @@ function appendLunchChoices(cell, id, selectedOpt) {
         el.classList.remove("on", "lunch-none", "lunch-yes");
       });
       btn.classList.add("on", opt === "無" ? "lunch-none" : "lunch-yes");
-      confirmRosterLunch([id], lunchValue(opt));
+      const items = [{ id, lunchHours: lunchValue(opt) }];
+      (extraIds || []).forEach((extraId) => {
+        if (extraId && extraId !== id) items.push({ id: extraId });
+      });
+      confirmRosterItems(items);
     });
     cell.append(btn);
   });
@@ -1084,12 +1091,18 @@ function appendStatusCell(td, item) {
   addLine(td, item.time || "－", "punch-line punch-time-line");
   const pay = item.time ? hm(roundPayTime(item.time)) : "";
   addLine(td, pay ? "計薪 " + pay : "計薪 －", "punch-line punch-pay-line");
-  if (item.kind === "pending" && item.id && item.type === "下班") {
+  if (item.kind === "pending" && item.id) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "choice";
     btn.textContent = "確認";
-    btn.addEventListener("click", () => confirmPunchIds([item.id]));
+    btn.addEventListener("click", () => {
+      if (item.type === "上班") {
+        confirmRosterItems([{ id: item.id, lunchHours: lunchValue("無") }]);
+      } else {
+        confirmRosterItems([{ id: item.id }]);
+      }
+    });
     td.append(btn);
   }
 }
@@ -1116,7 +1129,12 @@ function renderRoster(who, rows, iso) {
   const done = personDayDone(dayRows);
   const note = document.createElement("p");
   note.className = done ? "status ok" : "status err";
-  note.textContent = done ? "當天已完成打卡" : "尚未完成：可補卡，或按該區「無上班」";
+  const missing = incompleteReason(dayRows, iso);
+  note.textContent = done
+    ? "當天已完成打卡"
+    : missing
+      ? "尚未完成：" + missing + "。沒用到的區域請按無上班。"
+      : "尚未完成：可補卡，或按該區無上班";
   box.append(note);
   const table = document.createElement("table");
   table.className = "punch-table roster-table " + (done ? "roster-all-ok" : "roster-has-need");
@@ -1153,7 +1171,12 @@ function renderRoster(who, rows, iso) {
       hint.className = "hint";
       hint.textContent = "扣" + (area === "田間" ? "田區" : area) + "工時";
       lunchTd.append(hint);
-      appendLunchChoices(lunchTd, lunch.id, guessedLunchOpt(dayRows, area));
+      appendLunchChoices(
+        lunchTd,
+        lunch.id,
+        guessedLunchOpt(dayRows, area),
+        [lastPunchRow(dayRows, area, "下班") && lastPunchRow(dayRows, area, "下班").id].filter(Boolean),
+      );
     } else if (lunch.kind === "need") {
       lunchTd.textContent = lunch.label;
     } else {
@@ -1173,6 +1196,29 @@ function renderRoster(who, rows, iso) {
     box.append(send);
   }
   wrap.append(box);
+}
+
+async function confirmRosterItems(items, quiet) {
+  const packed = (items || []).filter((item) => Number(item.id) >= 2);
+  if (!packed.length) {
+    setStatus(makeupStatusEl, "找不到要確認的列，請重新載入後再試", "err");
+    return;
+  }
+  if (!quiet) setStatus(makeupStatusEl, "正在確認…");
+  try {
+    const data = await postScript({
+      action: "setLunch",
+      items: packed,
+    });
+    if (!data.count) {
+      setStatus(makeupStatusEl, "確認沒有寫入。請把最新 Code.gs 貼上 Apps Script 並發新版本", "err");
+      return;
+    }
+    if (!quiet) setStatus(makeupStatusEl, "已確認。", "ok");
+    await loadRoster();
+  } catch (err) {
+    setStatus(makeupStatusEl, err instanceof Error ? err.message : "確認失敗", "err");
+  }
 }
 
 async function submitPersonMakeup(iso, person, wrap) {
@@ -1222,26 +1268,12 @@ async function submitPersonMakeup(iso, person, wrap) {
   }
 }
 
-async function confirmPunchIds(ids) {
-  setStatus(makeupStatusEl, "正在確認…");
-  try {
-    await postScript({
-      action: "setLunch",
-      items: ids.map((id) => ({ id })),
-    });
-    setStatus(makeupStatusEl, "已確認。", "ok");
-    await loadRoster();
-  } catch (err) {
-    setStatus(makeupStatusEl, err instanceof Error ? err.message : "確認失敗", "err");
-  }
-}
-
 async function loadRoster() {
   const wrap = document.getElementById("roster-wrap");
   if (!wrap) return;
   const iso = makeupDateEl.value || todayTaipei();
-  wrap.innerHTML = "<p class='hint'>載入當天狀態…</p>";
-  if (rosterWrap) rosterWrap.hidden = makeupView === "range";
+  if (rosterWrap) rosterWrap.hidden = false;
+  wrap.innerHTML = "<p class='hint'>正在連線 Google 載入當天打卡…</p>";
   try {
     const data = await postScript({
       action: "listPunches",
@@ -1250,28 +1282,29 @@ async function loadRoster() {
       names: [...STAFF],
     });
     rosterRows = Array.isArray(data.rows) ? data.rows : [];
-    renderRoster(selectedStaff(), rosterRows, iso);
+    const person = selectedStaff();
+    renderRoster(person, rosterRows, iso);
+    if (person && !dayHasRecord(dayRowsFor(rosterRows, iso, person))) {
+      setStatus(makeupStatusEl, person + " 這天試算表沒有打卡列。請核對日期，或把最新 Code.gs 發新版本。", "err");
+    } else if (person) {
+      setStatus(makeupStatusEl, person + " " + slashDate(iso) + " 已載入。", "ok");
+    }
   } catch (err) {
     wrap.innerHTML = "";
     const p = document.createElement("p");
     p.className = "status err";
-    p.textContent = err instanceof Error ? err.message : "載入失敗";
+    p.textContent = "無法連線：" + (err instanceof Error ? err.message : "載入失敗");
     wrap.append(p);
+    setStatus(makeupStatusEl, p.textContent, "err");
   }
 }
 
 async function confirmRosterLunch(ids, lunchHours) {
-  setStatus(makeupStatusEl, "正在確認午休…");
-  try {
-    await postScript({
-      action: "setLunch",
-      items: ids.map((id) => ({ id, lunchHours })),
-    });
-    setStatus(makeupStatusEl, "午休已確認。", "ok");
-    await loadRoster();
-  } catch (err) {
-    setStatus(makeupStatusEl, err instanceof Error ? err.message : "確認失敗", "err");
-  }
+  await confirmRosterItems(ids.map((id) => ({ id, lunchHours })));
+}
+
+async function confirmPunchIds(ids) {
+  await confirmRosterItems(ids.map((id) => ({ id })));
 }
 
 async function markNoWork(iso, who, area) {
