@@ -222,10 +222,22 @@ function syncRange() {
   else loadRoster().catch(() => {});
 }
 
-makeupDateEl.value = todayTaipei();
-makeupWeekEl.value = todayTaipei();
-if (makeupFromEl) makeupFromEl.value = addDaysIso(todayTaipei(), -6);
-if (makeupToEl) makeupToEl.value = todayTaipei();
+function rememberedMakeupDate() {
+  const saved = (localStorage.getItem("punch-makeup-date") || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(saved)) return saved;
+  return todayTaipei();
+}
+
+function rememberMakeupDate(iso) {
+  if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    localStorage.setItem("punch-makeup-date", iso);
+  }
+}
+
+makeupDateEl.value = rememberedMakeupDate();
+makeupWeekEl.value = makeupDateEl.value || todayTaipei();
+if (makeupFromEl) makeupFromEl.value = addDaysIso(makeupDateEl.value || todayTaipei(), -6);
+if (makeupToEl) makeupToEl.value = makeupDateEl.value || todayTaipei();
 syncRange();
 scriptInput.value = scriptUrl();
 document.getElementById("saveUrl").addEventListener("click", () => {
@@ -237,6 +249,7 @@ makeupWeekEl.addEventListener("change", () => {
   renderWeekGrid();
 });
 makeupDateEl.addEventListener("change", () => {
+  rememberMakeupDate(makeupDateEl.value);
   if (makeupView === "day") loadRoster().catch(() => {});
 });
 if (makeupFromEl) {
@@ -356,14 +369,19 @@ document.getElementById("makeup-submit").addEventListener("click", async () => {
         entries: day.entries,
         dayEntries: [day],
       });
-      wrote += lastData.count || day.entries.length * names.length;
+    wrote += Number(lastData && lastData.count) || 0;
     }
+    rememberMakeupDate(makeupDateEl.value);
     const who = names.join("、");
+    if (!wrote) {
+      setStatus(makeupStatusEl, who + " 沒有寫入任何列。請把最新 Code.gs 發新版本後再補登。", "err");
+      return;
+    }
     setStatus(
       makeupStatusEl,
       lastData && lastData.preview
         ? `${who} 畫面已選好，但尚未連到 Google。`
-        : `${who} 已存進 Google 雲端，共 ${wrote} 筆。`,
+        : `${who} 已存進「${lastData.sheetName || "打卡"}」共 ${wrote} 筆。`,
       "ok",
     );
     if (lastData && (lastData.spreadsheetUrl || lastData.statsSpreadsheetUrl)) {
@@ -375,6 +393,9 @@ document.getElementById("makeup-submit").addEventListener("click", async () => {
         : "";
       makeupLinksEl.innerHTML = punch + stats;
     }
+    makeupView = "day";
+    syncMakeupViewUi();
+    await loadRoster();
   } catch (err) {
     setStatus(makeupStatusEl, err instanceof Error ? err.message : "送出失敗", "err");
   }
@@ -977,8 +998,9 @@ function collectIncomplete() {
 
 function openPersonDay(iso, person) {
   makeupView = "day";
-  syncMakeupViewUi();
   makeupDateEl.value = iso;
+  rememberMakeupDate(iso);
+  syncMakeupViewUi();
   makeupSelected.clear();
   makeupSelected.add(person);
   loadRoster().catch(() => {});
@@ -1284,13 +1306,23 @@ async function submitPersonMakeup(iso, person, wrap) {
   }
   setStatus(makeupStatusEl, "正在補卡…");
   try {
-    await postScript({
+    const data = await postScript({
       action: "punch",
       names: [person],
       source: "會計補打卡",
       dayEntries: [{ date: slashDate(iso), entries }],
     });
-    setStatus(makeupStatusEl, person + " 補卡已送出。午休請在該區欄位確認。", "ok");
+    rememberMakeupDate(iso);
+    makeupDateEl.value = iso;
+    if (!data.count) {
+      setStatus(makeupStatusEl, person + " 畫面顯示送出，但試算表寫入 0 筆。請把最新 Code.gs 發新版本。", "err");
+      return;
+    }
+    setStatus(
+      makeupStatusEl,
+      person + " 已寫入 " + data.count + " 筆到「" + (data.sheetName || "打卡") + "」" + slashDate(iso) + "。正在重新載入…",
+      "ok",
+    );
     await loadRoster();
   } catch (err) {
     setStatus(makeupStatusEl, err instanceof Error ? err.message : "補卡失敗", "err");

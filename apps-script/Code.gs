@@ -33,10 +33,14 @@ function sheetHeaderRow(sh) {
 
 function headerLooksLikePunch(header) {
   const joined = header.join("|");
-  return (
-    joined.indexOf("日期") >= 0 &&
-    (joined.indexOf("員工") >= 0 || joined.indexOf("姓名") >= 0 || joined.indexOf("類型") >= 0)
-  );
+  if (joined.indexOf("登錄時間") >= 0) return false;
+  function has(name) {
+    for (let i = 0; i < header.length; i++) {
+      if (String(header[i] || "").trim() === name) return true;
+    }
+    return false;
+  }
+  return has("日期") && has("時間") && (has("員工") || has("姓名")) && has("類型");
 }
 
 function findPunchSheet(ss) {
@@ -260,18 +264,30 @@ function writePunchRow(sh, when, name, type, area, source, lunchHours) {
 }
 
 function writePunchCells(sh, dateText, timeText, name, type, area, source, lunchHours) {
+  ensurePunchHeaders(sh);
+  const header = sheetHeaderRow(sh);
   const src = source || "員工打卡";
   const lunchText = type === "上班" && lunchHours != null ? lunchLabel(lunchHours) : "";
-  sh.appendRow([
-    dateText,
-    timeText,
-    name,
-    type,
-    area,
-    src,
-    punchStatusForSource(src),
-    lunchText,
-  ]);
+  const width = Math.max(sh.getLastColumn(), PUNCH_HEADERS.length);
+  const line = [];
+  for (let i = 0; i < width; i++) line.push("");
+  function put(colName, value, fallback) {
+    let i = colIndex(header, colName);
+    if (i < 0) i = fallback;
+    if (i < 0) return;
+    while (line.length <= i) line.push("");
+    line[i] = value;
+  }
+  put("日期", dateText, 0);
+  put("時間", timeText, 1);
+  put("員工", name, 2);
+  if (colIndex(header, "員工") < 0) put("姓名", name, 2);
+  put("類型", type, 3);
+  put("區域", areaKey(area), 4);
+  put("來源", src, 5);
+  put("狀態", punchStatusForSource(src), 6);
+  put("午休", lunchText, 7);
+  sh.appendRow(line);
 }
 
 function parseDayKeyFromText(text) {
@@ -344,6 +360,7 @@ function handlePunch(body) {
     return json({
       ok: true,
       count: wrote,
+      sheetName: sh.getName(),
       spreadsheetUrl: punchBook().getUrl(),
       statsSpreadsheetUrl: statsSpreadsheet().getUrl(),
     });
@@ -363,7 +380,7 @@ function handlePunch(body) {
     const when = body.at ? new Date(body.at) : new Date();
     writePunchRow(sh, when, name, type, area, source);
   }
-  return json({ ok: true, count: 1, spreadsheetUrl: punchBook().getUrl() });
+  return json({ ok: true, count: 1, sheetName: sh.getName(), spreadsheetUrl: punchBook().getUrl() });
 }
 
 function logMakeupToStats(names, dayEntries) {
