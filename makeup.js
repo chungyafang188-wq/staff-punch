@@ -1437,6 +1437,44 @@ async function submitPersonMakeup(iso, person, wrap, dayRows) {
   entries.forEach((entry) => {
     if (entry.type === "上班") entry.lunchHours = lunchFieldValue(wrap, entry.area, entry.seg);
   });
+  const seen = {};
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.type === "無上班") continue;
+    const mk = hm(entry.time);
+    const stamp = (entry.area || "") + "|" + mk;
+    const typed = stamp + "|" + entry.type;
+    if (seen[typed]) {
+      setStatus(makeupStatusEl, "同一時間重複打卡：" + (entry.area === "田間" ? "田區" : entry.area) + " " + entry.type + " " + mk + "。請改時間或刪多餘的段。", "err");
+      return;
+    }
+    if (seen[stamp] && seen[stamp] !== entry.type) {
+      setStatus(makeupStatusEl, "同一時間不能同時上下班：" + (entry.area === "田間" ? "田區" : entry.area) + " " + mk, "err");
+      return;
+    }
+    seen[typed] = true;
+    seen[stamp] = entry.type;
+  }
+  (dayRows || []).forEach((row) => {
+    if (String(row.status || "").trim() === "作廢") return;
+    if (String(row.type || "").trim() === "無上班") return;
+    const mk = hm(row.time);
+    entries.forEach((entry) => {
+      if (entry.type === "無上班") return;
+      if (!sameArea(row.area, entry.area)) return;
+      if (hm(entry.time) !== mk) return;
+      entries.dup =
+        "與表上重複：" +
+        (entry.area === "田間" ? "田區" : entry.area) +
+        " " +
+        mk +
+        " 已有打卡，同一時間不能重複計時";
+    });
+  });
+  if (entries.dup) {
+    setStatus(makeupStatusEl, entries.dup, "err");
+    return;
+  }
   if (!entries.length) {
     const lunchItems = [];
     wrap.querySelectorAll("select.lunch-input[data-punch-id]").forEach((sel) => {

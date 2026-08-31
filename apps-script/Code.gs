@@ -354,6 +354,65 @@ function slashFromDayKey(dayKey) {
   return String(dayKey || "").replace(/-/g, "/");
 }
 
+function minuteKey(timeText) {
+  const t = cellTimeText(timeText);
+  return t.slice(0, 5);
+}
+
+function loadExistingClockKeys(sh) {
+  const keys = {};
+  const range = sh.getDataRange();
+  const values = range.getValues();
+  const displays = range.getDisplayValues();
+  if (values.length < 2) return keys;
+  const header = (displays[0] || []).map(function (h) {
+    return String(h || "").trim();
+  });
+  const iDate = colIndex(header, "日期");
+  const iTime = colIndex(header, "時間");
+  const iName = colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : colIndex(header, "姓名");
+  const iType = colIndex(header, "類型");
+  const iArea = colIndex(header, "區域");
+  const iStatus = colIndex(header, "狀態");
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const type = String(row[iType >= 0 ? iType : 2] || "").trim();
+    if (type === "無上班") continue;
+    const st = iStatus >= 0 ? String(row[iStatus] || "").trim() : "";
+    if (st === "作廢") continue;
+    const who = String(row[iName >= 0 ? iName : 1] || "").trim();
+    const dateIdx = iDate >= 0 ? iDate : 0;
+    const day = cellDayKey(row[dateIdx], displays[i] ? displays[i][dateIdx] : "");
+    const timeIdx = iTime >= 0 ? iTime : 1;
+    const mk = minuteKey(row[timeIdx]);
+    if (!who || !day || !mk) continue;
+    const area = areaKey(row[iArea >= 0 ? iArea : 3]);
+    keys[who + "|" + day + "|" + area + "|" + type + "|" + mk] = true;
+    keys[who + "|" + day + "|" + area + "|*" + "|" + mk] = true;
+  }
+  return keys;
+}
+
+function clockDupError(keys, batch, name, dateText, area, type, timeText) {
+  if (type === "無上班") return "";
+  const day = cellDayKey(dateText, dateText) || parseDayKeyFromText(dateText);
+  const mk = minuteKey(timeText);
+  const who = String(name || "").trim();
+  const ar = areaKey(area);
+  if (!who || !day || !mk) return "";
+  const typeKey = who + "|" + day + "|" + ar + "|" + type + "|" + mk;
+  const anyKey = who + "|" + day + "|" + ar + "|*" + "|" + mk;
+  if (keys[typeKey] || batch[typeKey]) {
+    return who + " " + slashFromDayKey(day) + " " + (ar === "田間" ? "田區" : ar) + " " + type + " " + mk + " 已打過，同一時間不能重複計時";
+  }
+  if (keys[anyKey] || batch[anyKey]) {
+    return who + " " + slashFromDayKey(day) + " " + (ar === "田間" ? "田區" : ar) + " " + mk + " 已有打卡，同一時間不能再打一筆";
+  }
+  batch[typeKey] = true;
+  batch[anyKey] = true;
+  return "";
+}
+
 function handlePunch(body) {
   const source = String(body.source || "員工打卡").trim();
   const sh = punchSheet();
@@ -362,6 +421,25 @@ function handlePunch(body) {
   let wrote = 0;
 
   if (dayEntries && dayEntries.length) {
+    const keys = loadExistingClockKeys(sh);
+    const batch = {};
+    for (let d = 0; d < dayEntries.length; d++) {
+      const day = dayEntries[d];
+      const dateText = String(day.date || "").trim();
+      const entries = Array.isArray(day.entries) ? day.entries : [];
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const type = String(entry.type || "").trim();
+        const area = String(entry.area || body.area || (type === "無上班" ? "－" : "")).trim();
+        const timeText = String(entry.time || "").trim();
+        for (let n = 0; n < names.length; n++) {
+          const who = String(names[n] || "").trim();
+          if (!who) continue;
+          const dup = clockDupError(keys, batch, who, dateText, area, type, timeText);
+          if (dup) return json({ ok: false, error: dup });
+        }
+      }
+    }
     for (let d = 0; d < dayEntries.length; d++) {
       const day = dayEntries[d];
       const dateText = String(day.date || "").trim();
@@ -404,9 +482,15 @@ function handlePunch(body) {
   const dateText = String(body.date || "").trim().replace(/-/g, "/");
   const timeText = String(body.time || "").trim();
   if (dateText && timeText) {
+    const keys = loadExistingClockKeys(sh);
+    const dup = clockDupError(keys, {}, name, dateText, area, type, timeText);
+    if (dup) return json({ ok: false, error: dup });
     writePunchCells(sh, dateText, /^\d{1,2}:\d{2}$/.test(timeText) ? timeText + ":00" : timeText, name, type, area, source);
   } else {
     const when = body.at ? new Date(body.at) : new Date();
+    const keys = loadExistingClockKeys(sh);
+    const dup = clockDupError(keys, {}, name, formatDate(when), area, type, formatTime(when));
+    if (dup) return json({ ok: false, error: dup });
     writePunchRow(sh, when, name, type, area, source);
   }
   return json({ ok: true, count: 1, sheetName: sh.getName(), spreadsheetUrl: punchBook().getUrl() });
