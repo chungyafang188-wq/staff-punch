@@ -45,7 +45,7 @@ function headerLooksLikePunch(header) {
     }
     return false;
   }
-  return has("日期") && has("時間") && (has("員工") || has("姓名")) && has("類型");
+  return has("日期") && (has("員工") || has("姓名"));
 }
 
 function allPunchSheets(ss) {
@@ -57,6 +57,9 @@ function allPunchSheets(ss) {
     if (sh.getName() === "工時明細" || sh.getName() === "人別時數") continue;
     if (headerLooksLikePunch(sheetHeaderRow(sh))) out.push(sh);
   }
+  out.sort(function (a, b) {
+    return b.getLastRow() - a.getLastRow();
+  });
   return out;
 }
 
@@ -65,6 +68,13 @@ function punchSheet() {
   const log = ss.getSheetByName("補打登錄");
   if (log) {
     log.getRange(1, 1, 1, MAKEUP_LOG_HEADERS.length).setValues([MAKEUP_LOG_HEADERS]);
+  }
+  const candidates = allPunchSheets(ss).filter(function (sh) {
+    return sh.getLastRow() > 1;
+  });
+  if (candidates.length) {
+    ensurePunchHeaders(candidates[0]);
+    return candidates[0];
   }
   let sh = ss.getSheetByName(PUNCH_SHEET);
   if (!sh) sh = ss.insertSheet(PUNCH_SHEET);
@@ -713,8 +723,9 @@ function handleListPunches(body) {
   names.forEach(function (n) {
     nameSet[n] = true;
   });
-  punchSheet();
-  let sheets = allPunchSheets(punchBook());
+  let sheets = allPunchSheets(punchBook()).filter(function (sh) {
+    return sh.getLastRow() > 1;
+  });
   if (!sheets.length) sheets = [punchSheet()];
   const rows = [];
   const sheetNames = [];

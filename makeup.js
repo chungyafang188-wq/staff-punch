@@ -1358,7 +1358,7 @@ async function loadRoster() {
       if (scanned === 0) {
         setStatus(
           makeupStatusEl,
-          "分頁「" + sheetName + "」是空的，所以看起來都沒打卡。請把最新 Code.gs 貼上並發新版本（會自動找有「日期／員工」的分頁）。",
+          "目前讀到的分頁沒有列。真正打卡可能在別的分頁。請把最新 Code.gs 貼上並發新版本。",
           "err",
         );
       } else if (!rosterRows.length) {
