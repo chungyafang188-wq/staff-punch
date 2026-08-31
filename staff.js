@@ -1,9 +1,16 @@
 const STAFF = ["武", "定", "好", "青", "山", "香"];
 const DEFAULT_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbyLfXa5VlzBQDurTo_jvMKn7Vf-pjxXic1y4b-N60c7UOVAgSgpuEgqncnOX1N0C8TODg/exec";
+  "https://script.google.com/macros/s/AKfycbzOKqoHdCRYTUCot1z18Es-Xa57vaLTotiYCyZtQL_aBazRa5XXMb3CqvmY-JJyUhZ3mQ/exec";
+const OLD_SCRIPT_URLS = [
+  "https://script.google.com/macros/s/AKfycbyLfXa5VlzBQDurTo_jvMKn7Vf-pjxXic1y4b-N60c7UOVAgSgpuEgqncnOX1N0C8TODg/exec",
+];
 
 function scriptUrl() {
   const saved = (localStorage.getItem("punch-script-url") || "").trim();
+  if (saved && OLD_SCRIPT_URLS.indexOf(saved) !== -1) {
+    localStorage.removeItem("punch-script-url");
+    return DEFAULT_SCRIPT_URL;
+  }
   if (saved.indexOf("script.google.com") !== -1 && saved.indexOf("/exec") !== -1) {
     return saved;
   }
@@ -107,21 +114,17 @@ async function postScript(payload) {
   } catch {
     throw new Error("腳本沒有回傳正確資料。請重新部署網頁應用程式，對象選「任何人」");
   }
-  if (!data.ok) throw new Error(data.error || "送出失敗");
+  if (!data.ok) {
+    const err = data.error || "送出失敗";
+    if (String(err).indexOf("未知動作") !== -1) {
+      throw new Error("線上腳本還是舊版。請把 Code.gs 整份貼上，對「網頁應用程式」發新版本（不是程式庫）");
+    }
+    throw new Error(err);
+  }
   return data;
 }
 
 async function fetchScript(url, payload) {
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
-    const text = await res.text();
-    if (text && text.indexOf("{") === 0) return text;
-  } catch (_) {}
   const endpoint = new URL(url);
   endpoint.searchParams.set("payload", JSON.stringify(payload));
   let res;
@@ -129,7 +132,7 @@ async function fetchScript(url, payload) {
     res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
   } catch {
     throw new Error(
-      "連不到 Google 腳本。請確認：1. 用 http 網址開打卡頁 2. 腳本已部署為「任何人」 3. 改過程式後要對「網頁應用程式」發新版本",
+      "連不到 Google 腳本。請確認用網址打開頁面，且 Apps Script 網頁應用程式已發新版本、對象選任何人",
     );
   }
   return res.text();
