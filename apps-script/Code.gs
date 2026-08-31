@@ -2,7 +2,7 @@ const PUNCH_SHEET = "打卡";
 const STATS_FILE = "員工出勤統計表";
 // 試算表網址：https://docs.google.com/spreadsheets/d/這一串/edit
 // 若腳本是從試算表「擴充功能」打開的可留空。獨立專案一定要填。
-const SPREADSHEET_ID = "";
+const SPREADSHEET_ID = "1vOQs4YooIQN70WfLaR4uwON4nr9urKKLRq-hqBBTLVI";
 const TZ = "Asia/Taipei";
 const PUNCH_HEADERS = ["日期", "時間", "員工", "類型", "區域", "來源", "狀態", "午休"];
 // 一筆連續上下班若跨過這段時間，重疊部分當午休扣除。中午有打下班再打上班則不會扣。
