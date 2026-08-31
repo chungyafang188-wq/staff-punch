@@ -5,6 +5,7 @@ const STATS_FILE = "員工出勤統計表";
 const SPREADSHEET_ID = "1vOQs4YooIQN70WfLaR4uwON4nr9urKKLRq-hqBBTLVI";
 const TZ = "Asia/Taipei";
 const PUNCH_HEADERS = ["日期", "時間", "員工", "類型", "區域", "來源", "狀態", "午休"];
+const MAKEUP_LOG_HEADERS = ["登錄時間", "員工", "日期", "類型", "時間", "區域", "午休"];
 // 一筆連續上下班若跨過這段時間，重疊部分當午休扣除。中午有打下班再打上班則不會扣。
 const LUNCH_START = "12:00:00";
 const LUNCH_END = "13:00:00";
@@ -31,6 +32,10 @@ function sheetHeaderRow(sh) {
   });
 }
 
+function isMakeupLogSheet(sh) {
+  return sh.getName() === "補打登錄";
+}
+
 function headerLooksLikePunch(header) {
   const joined = header.join("|");
   if (joined.indexOf("登錄時間") >= 0) return false;
@@ -43,28 +48,48 @@ function headerLooksLikePunch(header) {
   return has("日期") && has("時間") && (has("員工") || has("姓名")) && has("類型");
 }
 
-function findPunchSheet(ss) {
+function allPunchSheets(ss) {
   const sheets = ss.getSheets();
-  const candidates = [];
+  const out = [];
   for (let i = 0; i < sheets.length; i++) {
     const sh = sheets[i];
-    if (!headerLooksLikePunch(sheetHeaderRow(sh))) continue;
-    candidates.push(sh);
+    if (isMakeupLogSheet(sh)) continue;
+    if (sh.getName() === "工時明細" || sh.getName() === "人別時數") continue;
+    if (headerLooksLikePunch(sheetHeaderRow(sh))) out.push(sh);
   }
-  candidates.sort(function (a, b) {
-    const dr = b.getLastRow() - a.getLastRow();
-    if (dr !== 0) return dr;
-    if (a.getName() === PUNCH_SHEET) return -1;
-    if (b.getName() === PUNCH_SHEET) return 1;
-    return 0;
-  });
-  if (candidates.length) return candidates[0];
-  const named = ss.getSheetByName(PUNCH_SHEET);
-  if (named) return named;
-  return ss.insertSheet(PUNCH_SHEET);
+  return out;
+}
+
+function punchSheet() {
+  const ss = punchBook();
+  const log = ss.getSheetByName("補打登錄");
+  if (log) {
+    log.getRange(1, 1, 1, MAKEUP_LOG_HEADERS.length).setValues([MAKEUP_LOG_HEADERS]);
+  }
+  let sh = ss.getSheetByName(PUNCH_SHEET);
+  if (!sh) sh = ss.insertSheet(PUNCH_SHEET);
+  ensurePunchHeaders(sh);
+  return sh;
+}
+
+function parseRowRef(id) {
+  const s = String(id || "");
+  const m = s.match(/^(.*):(\d+)$/);
+  if (m) return { name: m[1], row: Number(m[2]) };
+  return { name: "", row: Number(s) };
+}
+
+function sheetByNameOrPunch(name) {
+  const ss = punchBook();
+  if (name) {
+    const sh = ss.getSheetByName(name);
+    if (sh) return sh;
+  }
+  return punchSheet();
 }
 
 function ensurePunchHeaders(sh) {
+  if (isMakeupLogSheet(sh)) return;
   let header = sheetHeaderRow(sh);
   if (!headerLooksLikePunch(header)) {
     if (sh.getLastRow() > 1) return;
@@ -83,12 +108,6 @@ function areaKey(area) {
   const a = String(area || "").trim();
   if (a === "田區") return "田間";
   return a;
-}
-
-function punchSheet() {
-  const sh = findPunchSheet(punchBook());
-  ensurePunchHeaders(sh);
-  return sh;
 }
 
 function statsSpreadsheet() {
@@ -383,13 +402,16 @@ function handlePunch(body) {
   return json({ ok: true, count: 1, sheetName: sh.getName(), spreadsheetUrl: punchBook().getUrl() });
 }
 
-function logMakeupToStats(names, dayEntries) {
+function makeupLogSheet() {
   const ss = statsSpreadsheet();
   let sh = ss.getSheetByName("補打登錄");
   if (!sh) sh = ss.insertSheet("補打登錄");
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(["登錄時間", "員工", "日期", "類型", "時間", "區域", "午休"]);
-  }
+  sh.getRange(1, 1, 1, MAKEUP_LOG_HEADERS.length).setValues([MAKEUP_LOG_HEADERS]);
+  return sh;
+}
+
+function logMakeupToStats(names, dayEntries) {
+  const sh = makeupLogSheet();
   const now = formatStamp(new Date());
   for (let d = 0; d < dayEntries.length; d++) {
     const day = dayEntries[d];
@@ -637,14 +659,7 @@ function handleStats(body) {
   });
 }
 
-function handleListPunches(body) {
-  if (!body.from || !body.to) {
-    return json({ ok: false, error: "請提供起迄日期" });
-  }
-  const names = Array.isArray(body.names) ? body.names.map(String) : [];
-  const fromKey = String(body.from);
-  const toKey = String(body.to);
-  const sh = punchSheet();
+function collectPunchRowsFromSheet(sh, fromKey, toKey, nameSet) {
   const range = sh.getDataRange();
   const values = range.getValues();
   const displays = range.getDisplayValues();
@@ -653,56 +668,84 @@ function handleListPunches(body) {
   });
   const iStatus = colIndex(header, "狀態");
   const iName = colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : colIndex(header, "姓名");
+  const iDate = colIndex(header, "日期");
+  const iTime = colIndex(header, "時間");
+  const iType = colIndex(header, "類型");
+  const iArea = colIndex(header, "區域");
+  const iSource = colIndex(header, "來源");
+  const iLunch = colIndex(header, "午休");
   const rows = [];
+  const sheetName = sh.getName();
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const who = String(row[iName >= 0 ? iName : 1] || "").trim();
+    if (nameSet && !nameSet[who]) continue;
+    const dateIdx = iDate >= 0 ? iDate : 0;
+    const dayKey = cellDayKey(row[dateIdx], displays[i] ? displays[i][dateIdx] : "");
+    if (!dayKey) continue;
+    if (dayKey < fromKey || dayKey > toKey) continue;
+    const timeCell = iTime >= 0 ? row[iTime] : "";
+    const timeDisplay = iTime >= 0 && displays[i] ? displays[i][iTime] : "";
+    rows.push({
+      id: sheetName + ":" + (i + 1),
+      date: slashFromDayKey(dayKey),
+      time: cellTimeText(timeCell) || cellTimeText(timeDisplay),
+      name: who,
+      type: String(row[iType >= 0 ? iType : 2] || "").trim(),
+      area: areaKey(String(row[iArea >= 0 ? iArea : 3] || "")),
+      source: iSource >= 0 ? String(row[iSource] || "") : "",
+      status: iStatus >= 0 ? String(row[iStatus] || "") : "",
+      lunch: iLunch >= 0 ? String(row[iLunch] || "") : "",
+      sheetName: sheetName,
+    });
+  }
+  return { rows: rows, scanned: Math.max(0, values.length - 1), sheetName: sheetName };
+}
+
+function handleListPunches(body) {
+  if (!body.from || !body.to) {
+    return json({ ok: false, error: "請提供起迄日期" });
+  }
+  const names = Array.isArray(body.names) ? body.names.map(String) : [];
+  const fromKey = String(body.from);
+  const toKey = String(body.to);
   const nameSet = {};
   names.forEach(function (n) {
     nameSet[n] = true;
   });
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    const who = String(row[iName >= 0 ? iName : 1] || "").trim();
-    if (names.length && !nameSet[who]) continue;
-    const iDate = colIndex(header, "日期");
-    const iTime = colIndex(header, "時間");
-    const dateIdx = iDate >= 0 ? iDate : 0;
-    const dateCell = row[dateIdx];
-    const dateDisplay = displays[i] ? displays[i][dateIdx] : "";
-    const timeCell = iTime >= 0 ? row[iTime] : "";
-    const timeDisplay = iTime >= 0 && displays[i] ? displays[i][iTime] : "";
-    const dayKey = cellDayKey(dateCell, dateDisplay);
-    if (!dayKey) continue;
-    if (dayKey < fromKey || dayKey > toKey) continue;
-    const timeText = cellTimeText(timeCell) || cellTimeText(timeDisplay);
-    rows.push({
-      id: i + 1,
-      date: slashFromDayKey(dayKey),
-      time: timeText,
-      name: who,
-      type: String(row[colIndex(header, "類型") >= 0 ? colIndex(header, "類型") : 2] || "").trim(),
-      area: areaKey(String(row[colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3] || "")),
-      source: colIndex(header, "來源") >= 0 ? String(row[colIndex(header, "來源")] || "") : "",
-      status: iStatus >= 0 ? String(row[iStatus] || "") : "",
-      lunch: colIndex(header, "午休") >= 0 ? String(row[colIndex(header, "午休")] || "") : "",
-    });
+  punchSheet();
+  let sheets = allPunchSheets(punchBook());
+  if (!sheets.length) sheets = [punchSheet()];
+  const rows = [];
+  const sheetNames = [];
+  let scanned = 0;
+  for (let s = 0; s < sheets.length; s++) {
+    const got = collectPunchRowsFromSheet(sheets[s], fromKey, toKey, names.length ? nameSet : null);
+    sheetNames.push(got.sheetName);
+    scanned += got.scanned;
+    for (let r = 0; r < got.rows.length; r++) rows.push(got.rows[r]);
   }
   return json({
     ok: true,
     rows: rows,
-    sheetName: sh.getName(),
-    scanned: Math.max(0, values.length - 1),
+    sheetName: sheetNames.join("、"),
+    scanned: scanned,
     spreadsheetUrl: punchBook().getUrl(),
   });
 }
 
 function handleVoidPunch(body) {
-  const sh = punchSheet();
   const ids = Array.isArray(body.ids) ? body.ids : [];
   let count = 0;
   for (let i = 0; i < ids.length; i++) {
-    const row = Number(ids[i]);
-    if (!row || row < 2) continue;
-    sh.getRange(row, 7).setValue("作廢");
-    sh.getRange(row, 1, 1, 8)
+    const ref = parseRowRef(ids[i]);
+    if (!ref.row || ref.row < 2) continue;
+    const sh = sheetByNameOrPunch(ref.name);
+    const header = sheetHeaderRow(sh);
+    const iStatus = colIndex(header, "狀態");
+    const statusCol = iStatus >= 0 ? iStatus + 1 : 7;
+    sh.getRange(ref.row, statusCol).setValue("作廢");
+    sh.getRange(ref.row, 1, 1, Math.max(8, sh.getLastColumn()))
       .setFontColor("#cc0000")
       .setFontLine("line-through");
     count++;
@@ -710,8 +753,9 @@ function handleVoidPunch(body) {
   return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });
 }
 
-function handleSetLunch(body) {
-  const sh = punchSheet();
+function confirmSheetRows(sh, items) {
+  if (isMakeupLogSheet(sh)) return 0;
+  ensurePunchHeaders(sh);
   const header = sheetHeaderRow(sh);
   const iLunch = colIndex(header, "午休");
   const iStatus = colIndex(header, "狀態");
@@ -721,11 +765,10 @@ function handleSetLunch(body) {
   const iType = colIndex(header, "類型");
   const lunchCol = iLunch >= 0 ? iLunch + 1 : 8;
   const statusCol = iStatus >= 0 ? iStatus + 1 : 7;
-  const items = Array.isArray(body.items) ? body.items : [];
   let count = 0;
   const confirmedRows = [];
   for (let i = 0; i < items.length; i++) {
-    const row = Number(items[i].id);
+    const row = items[i].row;
     if (!row || row < 2) continue;
     const current = String(sh.getRange(row, statusCol).getValue() || "").trim();
     if (current === "作廢") continue;
@@ -759,6 +802,28 @@ function handleSetLunch(body) {
       sh.getRange(i + 1, statusCol).setValue("已確認");
       count++;
     }
+  }
+  return count;
+}
+
+function handleSetLunch(body) {
+  const items = Array.isArray(body.items) ? body.items : [];
+  const bySheet = {};
+  for (let i = 0; i < items.length; i++) {
+    const ref = parseRowRef(items[i].id);
+    if (!ref.row || ref.row < 2) continue;
+    const key = ref.name || PUNCH_SHEET;
+    if (!bySheet[key]) bySheet[key] = [];
+    const packed = { row: ref.row };
+    if (Object.prototype.hasOwnProperty.call(items[i], "lunchHours")) {
+      packed.lunchHours = items[i].lunchHours;
+    }
+    bySheet[key].push(packed);
+  }
+  let count = 0;
+  const names = Object.keys(bySheet);
+  for (let i = 0; i < names.length; i++) {
+    count += confirmSheetRows(sheetByNameOrPunch(names[i]), bySheet[names[i]]);
   }
   return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });
 }

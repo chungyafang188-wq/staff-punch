@@ -525,6 +525,13 @@ function lastPunchRow(dayRows, area, type) {
   return hits.length ? hits[hits.length - 1] : null;
 }
 
+function punchRowNumber(id) {
+  const s = String(id || "");
+  const m = s.match(/:(\d+)$/);
+  const n = m ? Number(m[1]) : Number(s);
+  return n;
+}
+
 function pendingConfirmItems(dayRows, area) {
   const items = [];
   dayRows.forEach((row) => {
@@ -532,7 +539,7 @@ function pendingConfirmItems(dayRows, area) {
     const type = String(row.type || "").trim();
     if (type !== "上班" && type !== "下班") return;
     if (!isPendingPunchRow(row)) return;
-    const item = { id: Number(row.id) };
+    const item = { id: row.id };
     if (type === "上班") {
       const out = lastPunchRow(dayRows, area, "下班");
       item.lunchHours = lunchValue(guessedLunchFromTimes(row.time, out && out.time));
@@ -1250,7 +1257,7 @@ function renderRoster(who, rows, iso) {
 }
 
 async function confirmRosterItems(items, quiet) {
-  const packed = (items || []).filter((item) => Number(item.id) >= 2);
+  const packed = (items || []).filter((item) => punchRowNumber(item.id) >= 2);
   if (!packed.length) {
     setStatus(makeupStatusEl, "找不到要確認的列，請重新載入後再試", "err");
     return;
