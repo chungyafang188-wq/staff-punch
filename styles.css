@@ -9,6 +9,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   font: 16px/1.5 var(--sans);
@@ -72,6 +73,33 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
 .status { min-height: 1.5rem; color: var(--muted); }
 .status.ok { color: var(--green); }
 .status.err { color: #8a1f1f; }
+.punch-status.ok {
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+  min-height: 2.4rem;
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  background: #d7efe3;
+  border-radius: 0.75rem;
+  color: var(--green);
+}
+.punch-title {
+  display: inline-block;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--green);
+  border-radius: 0.55rem;
+}
+.punch-app h1 { font-size: 1.7rem; font-weight: 800; }
+.punch-app h2 { font-size: 1.15rem; font-weight: 800; }
+.punch-app .chip, .punch-app .choice, .punch-app .submit {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
 
 .setup {
   margin-top: 1.5rem;
@@ -79,6 +107,12 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 0.8rem;
+}
+
+.setup summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .setup input, .setup label {
@@ -107,4 +141,145 @@ th, td {
   border: 1px solid var(--line);
   padding: 0.4rem 0.45rem;
   text-align: left;
+}
+
+.page-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin: 0 0 0.9rem;
+  padding: 0.3rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+}
+.page-tab {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 700;
+  border-radius: 0.7rem;
+  padding: 0.6rem 0.4rem;
+}
+.page-tab.on {
+  background: var(--green);
+  color: #fff;
+}
+.panel {
+  margin-top: 0.85rem;
+  padding: 0.85rem 0.9rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+}
+.panel h2 { margin: 0 0 0.55rem; }
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.field-grid label {
+  display: block;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.field-grid input {
+  display: block;
+  width: 100%;
+  margin: 0.3rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+}
+.single-date {
+  display: block;
+  margin-top: 0.65rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.single-date input {
+  display: block;
+  width: 100%;
+  margin: 0.3rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+}
+.hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.week-day {
+  margin-top: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+.week-day:first-child {
+  margin-top: 0.35rem;
+  padding-top: 0;
+  border-top: 0;
+}
+.week-day-title {
+  display: block;
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.shift-card {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+.shift-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+.shift-label { font-weight: 700; font-size: 0.9rem; }
+.shift-remove, .add-shift {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--green);
+  background: transparent;
+  border: 1px dashed var(--green);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+.add-shift {
+  width: 100%;
+  margin-top: 0.7rem;
+}
+.app-wide {
+  max-width: 36rem;
+}
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 0.35rem;
+}
+.punch-table { font-size: 0.8rem; }
+.punch-table tr.voided td {
+  color: #cc0000;
+  text-decoration: line-through;
+}
+.btn-void { background: #8a1f1f; }
+#export-excel {
+  display: block;
+  width: 100%;
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  font-size: 1.05rem;
 }

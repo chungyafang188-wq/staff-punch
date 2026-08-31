@@ -1,6 +1,5 @@
 const namesEl = document.getElementById("names");
 const statusEl = document.getElementById("status");
-const scriptInput = document.getElementById("scriptUrl");
 const nowEl = document.getElementById("now");
 
 function formatNow() {
@@ -52,12 +51,6 @@ document.querySelectorAll(".choice").forEach((btn) => {
   });
 });
 
-scriptInput.value = scriptUrl();
-document.getElementById("saveUrl").addEventListener("click", () => {
-  localStorage.setItem("punch-script-url", scriptInput.value.trim());
-  setStatus(statusEl, "已儲存腳本網址", "ok");
-});
-
 document.getElementById("submit").addEventListener("click", async () => {
   if (!name || !type || !area) {
     setStatus(statusEl, "請選姓名、上班或下班、以及區域", "err");
@@ -72,11 +65,8 @@ document.getElementById("submit").addEventListener("click", async () => {
       area,
       at: new Date().toISOString(),
     });
-    let msg = `${name} ${area} ${type} 已寫入。請打開試算表最下方名為「打卡」的工作表。`;
-    if (data.spreadsheetUrl) {
-      msg += " 連結：" + data.spreadsheetUrl;
-    }
-    setStatus(statusEl, msg, "ok");
+    const when = taipeiDateTime();
+    setStatus(statusEl, `${when.time} 已打卡${type}完成`, "ok");
   } catch (err) {
     setStatus(statusEl, err instanceof Error ? err.message : "送出失敗", "err");
   }

@@ -1,39 +1,32 @@
 # 員工打卡與出勤統計
 
-獨立網頁，不必提供 Google 帳號密碼。員工在手機打卡；會計可依日期與姓名統計，結果寫入雲端試算表 **員工出勤統計表**。
+員工在手機打卡；會計補打卡與出勤統計。資料寫入你的 Google 雲端試算表。不必把 Google 密碼給這個網頁。
 
 - 員工：武、定、好、青、山、香
 - 類型：上班／下班
 - 區域：田間／工廠
 
-## 網頁
+## 公開網址（任意電腦、手機可開）
 
-- 打卡：打開專案裡的 `index.html`
-- 會計統計：`stats.html`（可選出勤起迄、複選姓名）
+- 工人打卡：https://chungyafang188-wq.github.io/staff-punch/
+- 會計補打卡：https://chungyafang188-wq.github.io/staff-punch/makeup.html
+- 出勤統計：https://chungyafang188-wq.github.io/staff-punch/stats.html
 
-本機預覽（勿用檔案總管直接雙擊，以免打不開 Google）：
+工人請只用打卡網址。會計請用補打卡／統計網址。
+
+## 本機預覽
 
 ```bash
 cd C:\Users\user\staff-punch
-npx --yes serve .
+npx --yes serve -l 3000 .
 ```
 
-瀏覽器開終端機顯示的網址。手機請與電腦同一 Wi‑Fi，用區網 IP。
+- 打卡：http://localhost:3000/
+- 補打卡：http://localhost:3000/makeup.html
+- 統計：http://localhost:3000/stats.html
 
-## 接 Google 試算表（做一次）
+請用瀏覽器網址打開，不要從檔案總管雙擊 HTML。
 
-1. 用你的 Google 帳號開 [Google 試算表](https://sheets.google.com)，新建一份當 **打卡紀錄**。
-2. 功能表：**擴充功能 → Apps Script**。
-3. 刪掉預設內容，貼上 `apps-script/Code.gs` 全部內容，儲存。
-4. **部署 → 新增部署作業 → 類型選「網頁應用程式」**
-   - 執行身分：我
-   - 對象：任何人
-5. 授權時用 Google 官方畫面同意（不會把密碼給這個網頁）。
-6. 複製網頁應用程式網址（必須含 `script.google.com` 且以 `/exec` 結尾），在打卡頁或統計頁底部「老闆設定」貼上並儲存。
-7. 之後若有改 `Code.gs`：**部署 → 管理部署作業 → 鉛筆 → 版本選「新版本」→ 部署**。
+## Google 試算表
 
-打卡頁請用 `http://localhost…` 打開，**不要**從檔案總管雙擊 `index.html`，否則會出現 Failed to fetch。
-
-第一次統計時，腳本會在你的雲端硬碟建立（或開啟已有的）試算表，名稱固定為 **員工出勤統計表**。
-
-打卡寫入打卡紀錄試算表的「打卡」工作表；統計另寫到「員工出勤統計表」，兩份檔案分開。
+腳本網址已寫在網頁裡。之後若改 `apps-script/Code.gs`：貼上儲存後，**部署 → 管理部署作業 → 新版本**。

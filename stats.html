@@ -7,41 +7,49 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app">
+    <div class="app app-wide">
       <header>
-        <p class="eyebrow">會計</p>
+        <nav class="page-tabs" aria-label="會計功能">
+          <a class="page-tab" href="./makeup.html">會計補打卡</a>
+          <a class="page-tab on" href="./stats.html">出勤統計</a>
+        </nav>
+        <p class="eyebrow">會計專用</p>
         <h1>員工出勤統計</h1>
-        <p class="nav"><a href="./index.html">回打卡</a></p>
       </header>
 
-      <div class="fields">
-        <label>出勤起
-          <input id="from" type="date" />
-        </label>
-        <label>出勤迄
-          <input id="to" type="date" />
-        </label>
-      </div>
+      <section class="panel">
+        <h2>統計期間</h2>
+        <div class="fields">
+          <label>出勤起
+            <input id="from" type="date" />
+          </label>
+          <label>出勤迄
+            <input id="to" type="date" />
+          </label>
+        </div>
+      </section>
 
-      <section>
+      <section class="panel">
         <h2>員工姓名（可複選）</h2>
         <div id="names" class="chips"></div>
       </section>
 
       <button type="button" id="run" class="submit">統計並寫入「員工出勤統計表」</button>
       <p id="status" class="status"></p>
+      <p class="hint">一筆從早上連打到下午（例如 9:00–16:00）會自動扣 12:00–13:00 午休。若中午有下班、下午再上班，則用兩段計算、不再扣午休。合計時數是扣完午休的實工時。</p>
       <div id="result"></div>
+      <button type="button" id="export-excel" class="add-shift" hidden>匯出 Excel 下載</button>
 
       <details class="setup">
-        <summary>老闆設定</summary>
-        <p>與打卡頁使用同一個 Apps Script 網址。統計結果會寫到另一份試算表，名稱必須是「員工出勤統計表」。</p>
-        <label>腳本網址
+        <summary>進階：連到 Google 雲端</summary>
+        <p class="hint">平常不必打開。第一次接到 Google 時再展開，與補打卡頁使用同一個 Apps Script 網址。</p>
+        <label>Apps Script 網頁應用程式網址
           <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
         </label>
         <button type="button" id="saveUrl">儲存網址</button>
       </details>
     </div>
-    <script src="./staff.js"></script>
+    <script src="./staff.js?v=3"></script>
     <script src="./stats.js"></script>
   </body>
 </html>
