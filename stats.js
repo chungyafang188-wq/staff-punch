@@ -4,10 +4,40 @@ const resultEl = document.getElementById("result");
 const scriptInput = document.getElementById("scriptUrl");
 const fromEl = document.getElementById("from");
 const toEl = document.getElementById("to");
+const dayEl = document.getElementById("day");
+const dayWrap = document.getElementById("day-wrap");
+const rangeWrap = document.getElementById("range-wrap");
 const exportBtn = document.getElementById("export-excel");
 
+let periodKind = "day";
+
+function todayTaipei() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
+}
+
+function syncPeriodFields() {
+  const isDay = periodKind === "day";
+  dayWrap.hidden = !isDay;
+  rangeWrap.hidden = isDay;
+}
+
+dayEl.value = todayTaipei();
+fromEl.value = todayTaipei();
+toEl.value = todayTaipei();
+syncPeriodFields();
+
+document.querySelectorAll("[data-period]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    periodKind = btn.getAttribute("data-period") || "day";
+    document.querySelectorAll("[data-period]").forEach((el) => {
+      el.classList.toggle("on", el === btn);
+    });
+    syncPeriodFields();
+  });
+});
+
 const PERSON_HEADERS = ["員工", "上班時間", "下班時間", "田區時數", "工廠時數", "午休", "合計時數", "出勤日數"];
-const DETAIL_HEADERS = ["日期", "員工", "區域", "上班時間", "下班時間", "毛時數", "午休", "實工時"];
+const DETAIL_HEADERS = ["日期", "員工", "區域", "上班時間", "下班時間", "計薪上班", "計薪下班", "毛時數", "午休", "實工時"];
 let lastExport = null;
 
 function hoursText(value) {
@@ -81,6 +111,8 @@ function segmentCells(seg) {
     seg.area,
     seg.clockInTime || seg.clockInAt || "",
     seg.clockOutTime || seg.clockOutAt || "",
+    seg.payInTime || "",
+    seg.payOutTime || "",
     hoursText(seg.grossHours != null ? seg.grossHours : seg.hours),
     hoursText(seg.lunchHours),
     hoursText(seg.hours),
@@ -171,10 +203,20 @@ exportBtn.addEventListener("click", () => {
 });
 
 document.getElementById("run").addEventListener("click", async () => {
-  const from = fromEl.value;
-  const to = toEl.value;
-  if (!from || !to) {
+  let from = fromEl.value;
+  let to = toEl.value;
+  if (periodKind === "day") {
+    if (!dayEl.value) {
+      setStatus(statusEl, "請選擇統計日期", "err");
+      return;
+    }
+    from = dayEl.value;
+    to = dayEl.value;
+  } else if (!from || !to) {
     setStatus(statusEl, "請選擇出勤起、迄日期", "err");
+    return;
+  } else if (to < from) {
+    setStatus(statusEl, "迄日不可早於起日", "err");
     return;
   }
   if (selected.size === 0) {

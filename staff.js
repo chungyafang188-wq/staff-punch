@@ -71,6 +71,26 @@ function parseTypedTime(value) {
   return pad2(h) + ":" + pad2(m) + ":" + pad2(s);
 }
 
+function roundPayTime(timeText) {
+  const t = parseTypedTime(timeText);
+  if (!t) return "";
+  let h = Number(t.slice(0, 2));
+  let m = Number(t.slice(3, 5));
+  if (m < 15) m = 0;
+  else if (m < 45) m = 30;
+  else {
+    m = 0;
+    h += 1;
+    if (h > 23) h = 0;
+  }
+  return pad2(h) + ":" + pad2(m) + ":00";
+}
+
+function hm(timeText) {
+  const t = parseTypedTime(timeText) || String(timeText || "");
+  return t ? t.slice(0, 5) : "";
+}
+
 async function postScript(payload) {
   const url = scriptUrl().trim();
   if (!url) throw new Error("請先展開會計頁「進階：連到 Google 雲端」貼上 Apps Script 網址");

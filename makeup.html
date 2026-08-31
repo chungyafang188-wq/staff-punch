@@ -4,88 +4,79 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>會計補打卡</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=17" />
   </head>
   <body>
     <div class="app app-wide">
       <header>
         <nav class="page-tabs" aria-label="會計功能">
           <a class="page-tab on" href="./makeup.html">會計補打卡</a>
+          <a class="page-tab" href="./records.html">出勤紀錄</a>
           <a class="page-tab" href="./stats.html">出勤統計</a>
         </nav>
         <p class="eyebrow">會計專用</p>
         <h1>會計補打卡</h1>
+        <p class="hint">點員工圈圈確認當天打卡。紅＝還沒完成、綠＝已完成。員工自行打卡也在這裡確認，確認後才會進出勤統計。瀏覽全部紀錄請用「出勤紀錄」。</p>
       </header>
 
       <section class="panel">
-        <h2>員工姓名（可複選）</h2>
-        <div id="makeup-names" class="chips"></div>
-      </section>
-
-      <section class="panel">
-        <h2>區域</h2>
+        <h2>當日確認</h2>
+        <p class="hint">可選單一日期或起迄區間。區間會列出還沒打完、還沒確認的人，點列再進單日補卡。</p>
         <div class="row">
-          <button type="button" class="choice" data-kind="makeup-area" data-value="田間">田間</button>
-          <button type="button" class="choice" data-kind="makeup-area" data-value="工廠">工廠</button>
+          <button type="button" class="choice" data-makeup-view="day">單一日期</button>
+          <button type="button" class="choice on" data-makeup-view="range">起迄區間</button>
         </div>
-      </section>
-
-      <section class="panel">
-        <h2>補打範圍</h2>
-        <div class="row">
-          <button type="button" class="choice" data-kind="range" data-value="day">單日</button>
-          <button type="button" class="choice on" data-kind="range" data-value="week">整周</button>
-        </div>
-        <label class="single-date" id="day-label">補打日期
-          <input id="makeup-date" type="date" />
+        <label class="single-date" id="day-label" hidden>日期
+          <input id="makeup-date" type="date" lang="en" />
         </label>
-        <label class="single-date" id="week-label">該週任一天（會帶出週一到週日）
+        <div id="makeup-range-wrap" class="field-grid">
+          <label>起
+            <input id="makeup-from" type="date" lang="en" />
+          </label>
+          <label>迄
+            <input id="makeup-to" type="date" lang="en" />
+          </label>
+        </div>
+        <h2>員工</h2>
+        <div id="makeup-names" class="chips"></div>
+        <div id="incomplete-wrap" hidden></div>
+        <div id="roster-wrap"></div>
+      </section>
+
+      <div hidden>
+        <label class="single-date" id="week-label">該週任一天
           <input id="makeup-week" type="date" />
         </label>
-        <p id="week-span" class="hint"></p>
-        <div id="week-grid" hidden></div>
-      </section>
+        <p id="week-span"></p>
+        <div id="week-grid"></div>
+        <section id="day-times">
+          <div id="shift-list"></div>
+          <button type="button" id="add-shift">再加一筆上下班</button>
+        </section>
+        <button type="button" id="makeup-submit">送出並存到 Google 雲端</button>
+        <button type="button" id="load-existing">帶出已打卡時間</button>
+        <button type="button" id="load-pending">重新載入待確認</button>
+        <div id="pending-wrap"></div>
+        <button type="button" id="confirm-pending">確認並標為已確認</button>
+        <div id="existing-wrap"></div>
+        <button type="button" id="confirm-pay">確認帶入計薪時間</button>
+        <select id="missing-name"></select>
+        <div id="missing-wrap"></div>
+      </div>
 
-      <section id="day-times" class="panel" hidden>
-        <h2>上下班時間</h2>
-        <p class="hint">同一天可按「再加一筆上下班」，例如上午田間、下午工廠。</p>
-        <div id="shift-list"></div>
-        <button type="button" id="add-shift" class="add-shift">再加一筆上下班</button>
-      </section>
-
-      <button type="button" id="makeup-submit" class="submit">送出並存到 Google 雲端</button>
       <p id="makeup-status" class="status"></p>
       <div id="makeup-links"></div>
 
-      <section class="panel">
-        <h2>作廢重複打卡</h2>
-        <p class="hint">不會從表刪除，只在 Google 試算表用紅線槓掉並標示作廢；統計時不計入工時。</p>
-        <p class="hint">人員請用上方員工姓名勾選。預設起迄同一天。</p>
-        <div class="field-grid">
-          <label>起
-            <input id="void-from" type="date" />
-          </label>
-          <label>迄
-            <input id="void-to" type="date" />
-          </label>
-        </div>
-        <button type="button" id="void-load" class="add-shift">載入打卡</button>
-        <div id="void-table-wrap" class="table-wrap"></div>
-        <button type="button" id="void-submit" class="submit btn-void">以紅線作廢勾選筆數</button>
-        <p id="void-status" class="status"></p>
-        <div id="void-links"></div>
-      </section>
-
       <details class="setup">
         <summary>進階：連到 Google 雲端</summary>
-        <p class="hint">平常不必打開。第一次接到 Google 時再展開並儲存網址。補打會寫入打卡試算表，並同步到「員工出勤統計表」的「補打登錄」工作表。</p>
+        <p class="hint">平常不必打開。第一次接到 Google 時再展開並儲存網址。</p>
         <label>Apps Script 網頁應用程式網址
           <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
         </label>
         <button type="button" id="saveUrl" class="add-shift">儲存網址</button>
       </details>
     </div>
-    <script src="./staff.js?v=3"></script>
-    <script src="./makeup.js"></script>
+    <script src="./staff.js?v=4"></script>
+    <script src="./makeup.js?v=24"></script>
   </body>
 </html>

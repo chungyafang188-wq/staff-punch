@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>出勤紀錄</title>
+    <link rel="stylesheet" href="./styles.css?v=8" />
+  </head>
+  <body>
+    <div class="app app-wide">
+      <header>
+        <nav class="page-tabs" aria-label="會計功能">
+          <a class="page-tab" href="./makeup.html">會計補打卡</a>
+          <a class="page-tab on" href="./records.html">出勤紀錄</a>
+          <a class="page-tab" href="./stats.html">出勤統計</a>
+        </nav>
+        <p class="eyebrow">會計專用</p>
+        <h1>出勤紀錄</h1>
+        <p class="hint">瀏覽員工已完成的打卡。此頁不作計薪確認；待確認請到「會計補打卡」，已確認後再到「出勤統計」重算。</p>
+      </header>
+
+      <section class="panel">
+        <h2>查詢</h2>
+        <p class="hint">選好日期、員工、來源、區域、上班或下班後會自動載入。未選員工代表全部。</p>
+        <div class="row">
+          <button type="button" class="choice on" data-period="day">單一日期</button>
+          <button type="button" class="choice" data-period="range">起迄區間</button>
+        </div>
+        <label id="day-wrap" class="single-date">查詢日期
+          <input id="void-day" type="date" lang="en" />
+        </label>
+        <div id="range-wrap" class="field-grid" hidden>
+          <label>起
+            <input id="void-from" type="date" lang="en" />
+          </label>
+          <label>迄
+            <input id="void-to" type="date" lang="en" />
+          </label>
+        </div>
+        <label class="single-date">員工姓名
+          <select id="record-name">
+            <option value="">全部員工</option>
+          </select>
+        </label>
+        <p class="hint">來源</p>
+        <div class="row">
+          <button type="button" class="choice on" data-source-filter="員工打卡">員工打卡</button>
+          <button type="button" class="choice" data-source-filter="會計補打卡">會計補打卡</button>
+        </div>
+        <p class="hint">區域</p>
+        <div class="row">
+          <button type="button" class="choice on" data-area-filter="田間">田間</button>
+          <button type="button" class="choice on" data-area-filter="工廠">工廠</button>
+        </div>
+        <p class="hint">類型</p>
+        <div class="row">
+          <button type="button" class="choice on" data-type-filter="上班">上班</button>
+          <button type="button" class="choice on" data-type-filter="下班">下班</button>
+        </div>
+      </section>
+
+      <div id="void-table-wrap" class="table-wrap"></div>
+      <button type="button" id="void-submit" class="submit btn-void">以紅線作廢勾選筆數</button>
+      <p id="void-status" class="status"></p>
+      <div id="void-links"></div>
+
+      <details class="setup">
+        <summary>進階：連到 Google 雲端</summary>
+        <p class="hint">平常不必打開。與補打卡頁使用同一個 Apps Script 網址。</p>
+        <label>Apps Script 網頁應用程式網址
+          <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+        </label>
+        <button type="button" id="saveUrl" class="add-shift">儲存網址</button>
+      </details>
+    </div>
+    <script src="./staff.js?v=4"></script>
+    <script src="./records.js?v=9"></script>
+  </body>
+</html>

@@ -11,6 +11,7 @@
       <header>
         <nav class="page-tabs" aria-label="會計功能">
           <a class="page-tab" href="./makeup.html">會計補打卡</a>
+          <a class="page-tab" href="./records.html">出勤紀錄</a>
           <a class="page-tab on" href="./stats.html">出勤統計</a>
         </nav>
         <p class="eyebrow">會計專用</p>
@@ -19,7 +20,14 @@
 
       <section class="panel">
         <h2>統計期間</h2>
-        <div class="fields">
+        <div class="row">
+          <button type="button" class="choice on" data-period="day">單一日期</button>
+          <button type="button" class="choice" data-period="range">起迄區間</button>
+        </div>
+        <label id="day-wrap" class="single-date">統計日期
+          <input id="day" type="date" />
+        </label>
+        <div id="range-wrap" class="field-grid" hidden>
           <label>出勤起
             <input id="from" type="date" />
           </label>
@@ -36,7 +44,7 @@
 
       <button type="button" id="run" class="submit">統計並寫入「員工出勤統計表」</button>
       <p id="status" class="status"></p>
-      <p class="hint">一筆從早上連打到下午（例如 9:00–16:00）會自動扣 12:00–13:00 午休。若中午有下班、下午再上班，則用兩段計算、不再扣午休。合計時數是扣完午休的實工時。</p>
+      <p class="hint">只統計「已確認」與會計補打卡。員工自行打卡若仍是待確認，這裡不算。時數以 30 分鐘為單位：分鐘未滿 15 分算整點，滿 15 分算 30 分。連續打到下午會再扣 12:00–13:00 午休（待確認時已選定的午休為準）。</p>
       <div id="result"></div>
       <button type="button" id="export-excel" class="add-shift" hidden>匯出 Excel 下載</button>
 

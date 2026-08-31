@@ -56,6 +56,29 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
   color: #fff;
   border-color: var(--green);
 }
+#makeup-names .chip.need {
+  background: #f4c7c7;
+  color: #8a1f1f;
+  border-color: #c98a8a;
+}
+#makeup-names .chip.ok {
+  background: #c8ead8;
+  color: #14532d;
+  border-color: #8cbfa4;
+}
+#makeup-names .chip.on {
+  box-shadow: 0 0 0 3px var(--ink);
+}
+#makeup-names .chip.on.need {
+  background: #e89090;
+  color: #6b1212;
+  border-color: #8a1f1f;
+}
+#makeup-names .chip.on.ok {
+  background: #9dd4b4;
+  color: #0f3d24;
+  border-color: #1b5e3b;
+}
 
 .submit {
   width: 100%;
@@ -120,12 +143,15 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
   width: 100%;
 }
 
-.setup input, .fields input {
+.setup input, .fields input, .single-date select {
   margin: 0.35rem 0 0.7rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   font: inherit;
+  width: 100%;
+  color: var(--ink);
+  background: #fff;
 }
 
 .fields label { display: block; margin-top: 0.6rem; }
@@ -145,8 +171,8 @@ th, td {
 
 .page-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.35rem;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.3rem;
   margin: 0 0 0.9rem;
   padding: 0.3rem;
   background: var(--card);
@@ -159,8 +185,9 @@ th, td {
   text-decoration: none;
   color: var(--ink);
   font-weight: 700;
+  font-size: 0.88rem;
   border-radius: 0.7rem;
-  padding: 0.6rem 0.4rem;
+  padding: 0.55rem 0.25rem;
 }
 .page-tab.on {
   background: var(--green);
@@ -174,10 +201,8 @@ th, td {
   border-radius: 0.9rem;
 }
 .panel h2 { margin: 0 0 0.55rem; }
-.field-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
+#makeup-range-wrap {
+  margin-top: 0.65rem;
 }
 .field-grid label {
   display: block;
@@ -213,10 +238,25 @@ th, td {
   color: var(--ink);
   background: #fff;
 }
+.single-date input[type="date"],
+.fields input[type="date"] {
+  width: auto;
+  max-width: 11.5rem;
+}
+.field-grid input[type="date"] {
+  width: 100%;
+  max-width: none;
+}
 .hint {
   margin: 0.45rem 0 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+.empty-msg {
+  margin: 0.85rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ink);
 }
 .week-day {
   margin-top: 0.7rem;
@@ -234,7 +274,7 @@ th, td {
   font-size: 0.9rem;
   font-weight: 700;
 }
-.shift-card {
+.lunch-row { margin-top: 0.35rem; }
   margin-top: 0.7rem;
   padding: 0.7rem 0.75rem;
   border: 1px solid var(--line);
@@ -274,6 +314,69 @@ th, td {
 .punch-table tr.voided td {
   color: #cc0000;
   text-decoration: line-through;
+}
+.punch-table tr.day-done td {
+  color: var(--green);
+  font-weight: 700;
+}
+.punch-table td.day-done {
+  color: var(--green);
+  font-weight: 700;
+  background: transparent;
+}
+.punch-table td.pending {
+  background: #fff6e8;
+  font-weight: 700;
+}
+.roster-table th, .roster-table td {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.25rem;
+  text-align: center;
+}
+.roster-table tr.roster-need td {
+  background: #f4c7c7;
+  color: #8a1f1f;
+  font-weight: 700;
+}
+.roster-table tr.roster-ok td {
+  background: #c8ead8;
+  color: #14532d;
+  font-weight: 700;
+}
+.roster-table.roster-all-ok {
+  outline: 3px solid #1b5e3b;
+}
+.roster-table.roster-has-need {
+  outline: 3px solid #b42318;
+}
+.person-day {
+  padding-top: 1rem;
+}
+.person-day h2 {
+  margin-top: 0.5rem;
+}
+.person-day .punch-table td {
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.45rem 0.4rem;
+}
+.person-day .need-input {
+  width: 6.5rem;
+  font: inherit;
+}
+.punch-line {
+  line-height: 1.35;
+}
+.punch-status-line { font-weight: 800; }
+.incomplete-row { cursor: pointer; }
+.person-day .lunch-pick {
+  margin: 0.15rem 0.15rem 0 0;
+}
+.person-day .lunch-pick.on.lunch-yes,
+.person-day .lunch-pick.on.lunch-none {
+  background: var(--ink);
+  color: var(--card);
+  border-color: var(--ink);
 }
 .btn-void { background: #8a1f1f; }
 #export-excel {

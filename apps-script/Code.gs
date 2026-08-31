@@ -4,7 +4,7 @@ const STATS_FILE = "員工出勤統計表";
 // 若腳本是從試算表「擴充功能」打開的可留空。獨立專案一定要填。
 const SPREADSHEET_ID = "";
 const TZ = "Asia/Taipei";
-const PUNCH_HEADERS = ["日期", "時間", "員工", "類型", "區域", "來源", "狀態"];
+const PUNCH_HEADERS = ["日期", "時間", "員工", "類型", "區域", "來源", "狀態", "午休"];
 // 一筆連續上下班若跨過這段時間，重疊部分當午休扣除。中午有打下班再打上班則不會扣。
 const LUNCH_START = "12:00:00";
 const LUNCH_END = "13:00:00";
@@ -60,6 +60,7 @@ function doGet(e) {
     if (body.action === "stats") return handleStats(body);
     if (body.action === "listPunches") return handleListPunches(body);
     if (body.action === "voidPunch") return handleVoidPunch(body);
+    if (body.action === "setLunch") return handleSetLunch(body);
     return json({ ok: false, error: "未知動作" });
   } catch (err) {
     return json({ ok: false, error: String(err) });
@@ -73,6 +74,7 @@ function doPost(e) {
     if (body.action === "stats") return handleStats(body);
     if (body.action === "listPunches") return handleListPunches(body);
     if (body.action === "voidPunch") return handleVoidPunch(body);
+    if (body.action === "setLunch") return handleSetLunch(body);
     return json({ ok: false, error: "未知動作" });
   } catch (err) {
     return json({ ok: false, error: String(err) });
@@ -85,6 +87,38 @@ function formatDate(when) {
 
 function formatTime(when) {
   return Utilities.formatDate(when, TZ, "HH:mm:ss");
+}
+
+function pad2(n) {
+  return (n < 10 ? "0" : "") + n;
+}
+
+// 分鐘 0–14 → 整點；15–44 → 30 分；45–59 → 下一整點。時數以 30 分鐘為單位。
+function roundToHalfHour(when) {
+  const datePart = formatDate(when);
+  let h = Number(Utilities.formatDate(when, TZ, "HH"));
+  const m = Number(Utilities.formatDate(when, TZ, "mm"));
+  let nextDay = false;
+  let minutes = 0;
+  if (m < 15) {
+    minutes = 0;
+  } else if (m < 45) {
+    minutes = 30;
+  } else {
+    minutes = 0;
+    h += 1;
+    if (h >= 24) {
+      h = 0;
+      nextDay = true;
+    }
+  }
+  let dateText = datePart;
+  if (nextDay) {
+    const p = String(datePart).split("/");
+    const next = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 1);
+    dateText = Utilities.formatDate(next, TZ, "yyyy/MM/dd");
+  }
+  return parseWhen(dateText, pad2(h) + ":" + pad2(minutes) + ":00");
 }
 
 function formatStamp(when) {
@@ -122,15 +156,38 @@ function lunchOverlapHours(start, end) {
   return hoursBetween(new Date(overlapStart), new Date(overlapEnd));
 }
 
-function writePunchRow(sh, when, name, type, area, source) {
+function parseLunchChoice(raw) {
+  const s = String(raw == null ? "" : raw).trim();
+  if (s === "" || s === "自動") return null;
+  if (s === "無") return 0;
+  const n = Number(s);
+  if (n === 0 || n === 0.5 || n === 1) return n;
+  return null;
+}
+
+function lunchLabel(hours) {
+  if (hours === 0) return "無";
+  if (hours === 0.5) return "0.5";
+  if (hours === 1) return "1";
+  return "";
+}
+
+function punchStatusForSource(source) {
+  return source === "會計補打卡" ? "已確認" : "待確認";
+}
+
+function writePunchRow(sh, when, name, type, area, source, lunchHours) {
+  const src = source || "員工打卡";
+  const lunchText = type === "上班" && lunchHours != null ? lunchLabel(lunchHours) : "";
   sh.appendRow([
     formatDate(when),
     formatTime(when),
     name,
     type,
     area,
-    source || "員工打卡",
-    "",
+    src,
+    punchStatusForSource(src),
+    lunchText,
   ]);
 }
 
@@ -150,12 +207,14 @@ function handlePunch(body) {
         const entry = entries[i];
         const when = parseWhen(dateText, entry.time);
         const type = String(entry.type || "").trim();
-        const area = String(entry.area || body.area || "").trim();
-        if (!when || !type || !area) continue;
+        const area = String(entry.area || body.area || (type === "無上班" ? "－" : "")).trim();
+        const lunchHours = parseLunchChoice(entry.lunchHours);
+        if (!when || !type) continue;
+        if (type !== "無上班" && !area) continue;
         for (let n = 0; n < names.length; n++) {
           const who = String(names[n] || "").trim();
           if (!who) continue;
-          writePunchRow(sh, when, who, type, area, source);
+          writePunchRow(sh, when, who, type, area, source, lunchHours);
           wrote++;
         }
       }
@@ -171,8 +230,8 @@ function handlePunch(body) {
 
   const name = String(body.name || "").trim();
   const type = String(body.type || "").trim();
-  const area = String(body.area || "").trim();
-  if (!name || !type || !area) {
+  const area = String(body.area || (type === "無上班" ? "－" : "")).trim();
+  if (!name || !type || (type !== "無上班" && !area)) {
     return json({ ok: false, error: "缺少姓名、類型或區域" });
   }
   const when = body.at ? new Date(body.at) : new Date();
@@ -185,7 +244,7 @@ function logMakeupToStats(names, dayEntries) {
   let sh = ss.getSheetByName("補打登錄");
   if (!sh) sh = ss.insertSheet("補打登錄");
   if (sh.getLastRow() === 0) {
-    sh.appendRow(["登錄時間", "員工", "日期", "類型", "時間", "區域"]);
+    sh.appendRow(["登錄時間", "員工", "日期", "類型", "時間", "區域", "午休"]);
   }
   const now = formatStamp(new Date());
   for (let d = 0; d < dayEntries.length; d++) {
@@ -201,6 +260,7 @@ function logMakeupToStats(names, dayEntries) {
           entry.type,
           entry.time,
           entry.area || "",
+          entry.type === "上班" ? lunchLabel(parseLunchChoice(entry.lunchHours)) : "",
         ]);
       }
     }
@@ -227,6 +287,7 @@ function readPunchEvents(from, to, names) {
   const iArea = colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3;
   const iSource = colIndex(header, "來源");
   const iStatus = colIndex(header, "狀態");
+  const iLunch = colIndex(header, "午休");
   const nameSet = {};
   names.forEach(function (n) {
     nameSet[n] = true;
@@ -234,7 +295,14 @@ function readPunchEvents(from, to, names) {
   const events = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    if (iStatus >= 0 && String(row[iStatus] || "").trim() === "作廢") continue;
+    const typeText = String(row[iType] || "").trim();
+    if (typeText === "無上班") continue;
+    if (iStatus >= 0) {
+      const st = String(row[iStatus] || "").trim();
+      if (st === "作廢" || st === "待確認") continue;
+      const src = iSource >= 0 ? String(row[iSource] || "").trim() : "";
+      if (st === "" && src !== "會計補打卡") continue;
+    }
     const who = String(row[iName] || "").trim();
     if (!nameSet[who]) continue;
     let when = null;
@@ -263,6 +331,7 @@ function readPunchEvents(from, to, names) {
       area: String(row[iArea] || "").trim(),
       source: iSource >= 0 ? String(row[iSource] || "").trim() : "",
       status: iStatus >= 0 ? String(row[iStatus] || "").trim() : "",
+      lunchHours: iLunch >= 0 ? parseLunchChoice(row[iLunch]) : null,
     });
   }
   events.sort(function (a, b) {
@@ -288,8 +357,11 @@ function pairSegments(events) {
       } else if (e.type === "下班") {
         const open = queue.shift();
         if (!open) continue;
-        const gross = hoursBetween(open.when, e.when);
-        const lunch = lunchOverlapHours(open.when, e.when);
+        const payIn = roundToHalfHour(open.when);
+        const payOut = roundToHalfHour(e.when);
+        const gross = hoursBetween(payIn, payOut);
+        const lunch =
+          open.lunchHours == null ? lunchOverlapHours(payIn, payOut) : Number(open.lunchHours);
         const net = roundHours(Math.max(0, gross - lunch));
         segs.push({
           date: open.date,
@@ -299,6 +371,8 @@ function pairSegments(events) {
           clockOutAt: formatStamp(e.when),
           clockInTime: formatTime(open.when),
           clockOutTime: formatTime(e.when),
+          payInTime: formatTime(payIn),
+          payOutTime: formatTime(payOut),
           grossHours: gross,
           lunchHours: lunch,
           hours: net,
@@ -373,7 +447,7 @@ function handleStats(body) {
   detail.appendRow([""]);
   detail.appendRow(["午休", LUNCH_START + "－" + LUNCH_END, "連續上下班跨過此時段才扣除"]);
   detail.appendRow([""]);
-  detail.appendRow(["日期", "員工", "區域", "上班時間", "下班時間", "毛時數", "午休", "實工時"]);
+  detail.appendRow(["日期", "員工", "區域", "上班時間", "下班時間", "計薪上班", "計薪下班", "毛時數", "午休", "實工時"]);
   segments.forEach(function (seg) {
     detail.appendRow([
       seg.date,
@@ -381,6 +455,8 @@ function handleStats(body) {
       seg.area,
       seg.clockInTime,
       seg.clockOutTime,
+      seg.payInTime,
+      seg.payOutTime,
       seg.grossHours,
       seg.lunchHours,
       seg.hours,
@@ -422,9 +498,8 @@ function handleListPunches(body) {
     return json({ ok: false, error: "請提供起迄日期" });
   }
   const names = Array.isArray(body.names) ? body.names.map(String) : [];
-  const from = new Date(String(body.from) + "T00:00:00");
-  const to = new Date(String(body.to) + "T23:59:59");
-  const events = readPunchEvents(from, to, names.length ? names : ["武", "定", "好", "青", "山", "香"]);
+  const fromKey = String(body.from);
+  const toKey = String(body.to);
   const values = punchSheet().getDataRange().getValues();
   const header = values[0].map(function (h) {
     return String(h || "").trim();
@@ -446,23 +521,26 @@ function handleListPunches(body) {
       const dateCell = row[iDate];
       const timeCell = row[iTime];
       if (dateCell instanceof Date) {
-        when = parseWhen(formatDate(dateCell), timeCell instanceof Date ? formatTime(timeCell) : String(timeCell || ""));
+        when = parseWhen(formatDate(dateCell), timeCell instanceof Date ? formatTime(timeCell) : String(timeCell || "00:00:00"));
       } else {
-        when = parseWhen(dateCell, timeCell);
+        when = parseWhen(dateCell, timeCell || "00:00:00");
       }
     } else if (row[0] instanceof Date) {
       when = row[0];
     }
-    if (!when || when < from || when > to) continue;
+    if (!when) continue;
+    const dayKey = Utilities.formatDate(when, TZ, "yyyy-MM-dd");
+    if (dayKey < fromKey || dayKey > toKey) continue;
     rows.push({
       id: i + 1,
       date: formatDate(when),
       time: formatTime(when),
       name: who,
-      type: String(row[colIndex(header, "類型") >= 0 ? colIndex(header, "類型") : 2] || ""),
+      type: String(row[colIndex(header, "類型") >= 0 ? colIndex(header, "類型") : 2] || "").trim(),
       area: String(row[colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3] || ""),
       source: colIndex(header, "來源") >= 0 ? String(row[colIndex(header, "來源")] || "") : "",
       status: iStatus >= 0 ? String(row[iStatus] || "") : "",
+      lunch: colIndex(header, "午休") >= 0 ? String(row[colIndex(header, "午休")] || "") : "",
     });
   }
   return json({ ok: true, rows: rows, spreadsheetUrl: punchBook().getUrl() });
@@ -476,9 +554,35 @@ function handleVoidPunch(body) {
     const row = Number(ids[i]);
     if (!row || row < 2) continue;
     sh.getRange(row, 7).setValue("作廢");
-    sh.getRange(row, 1, 1, 7)
+    sh.getRange(row, 1, 1, 8)
       .setFontColor("#cc0000")
       .setFontLine("line-through");
+    count++;
+  }
+  return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });
+}
+
+function handleSetLunch(body) {
+  const sh = punchSheet();
+  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) {
+    return String(h || "").trim();
+  });
+  const iLunch = colIndex(header, "午休");
+  const iStatus = colIndex(header, "狀態");
+  const lunchCol = iLunch >= 0 ? iLunch + 1 : 8;
+  const statusCol = iStatus >= 0 ? iStatus + 1 : 7;
+  const items = Array.isArray(body.items) ? body.items : [];
+  let count = 0;
+  for (let i = 0; i < items.length; i++) {
+    const row = Number(items[i].id);
+    if (!row || row < 2) continue;
+    const current = String(sh.getRange(row, statusCol).getValue() || "").trim();
+    if (current === "作廢") continue;
+    if (Object.prototype.hasOwnProperty.call(items[i], "lunchHours")) {
+      const label = lunchLabel(parseLunchChoice(items[i].lunchHours));
+      sh.getRange(row, lunchCol).setValue(label === "" ? "無" : label);
+    }
+    sh.getRange(row, statusCol).setValue("已確認");
     count++;
   }
   return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });

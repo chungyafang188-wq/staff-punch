@@ -10,9 +10,10 @@
 
 - 工人打卡：https://chungyafang188-wq.github.io/staff-punch/
 - 會計補打卡：https://chungyafang188-wq.github.io/staff-punch/makeup.html
+- 出勤紀錄：https://chungyafang188-wq.github.io/staff-punch/records.html
 - 出勤統計：https://chungyafang188-wq.github.io/staff-punch/stats.html
 
-工人請只用打卡網址。會計請用補打卡／統計網址。
+工人請只用打卡網址。會計請用補打卡／紀錄／統計網址。
 
 ## 本機預覽
 
@@ -23,6 +24,7 @@ npx --yes serve -l 3000 .
 
 - 打卡：http://localhost:3000/
 - 補打卡：http://localhost:3000/makeup.html
+- 出勤紀錄：http://localhost:3000/records.html
 - 統計：http://localhost:3000/stats.html
 
 請用瀏覽器網址打開，不要從檔案總管雙擊 HTML。
