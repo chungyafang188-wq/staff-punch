@@ -61,10 +61,24 @@ function findPunchSheet(ss) {
 }
 
 function ensurePunchHeaders(sh) {
-  if (headerLooksLikePunch(sheetHeaderRow(sh))) return;
-  if (sh.getLastRow() > 1) return;
-  sh.getRange(1, 1, 1, PUNCH_HEADERS.length).setValues([PUNCH_HEADERS]);
-  sh.getRange("A:B").setNumberFormat("@");
+  let header = sheetHeaderRow(sh);
+  if (!headerLooksLikePunch(header)) {
+    if (sh.getLastRow() > 1) return;
+    sh.getRange(1, 1, 1, PUNCH_HEADERS.length).setValues([PUNCH_HEADERS]);
+    sh.getRange("A:B").setNumberFormat("@");
+    return;
+  }
+  ["來源", "狀態", "午休"].forEach(function (name) {
+    header = sheetHeaderRow(sh);
+    if (colIndex(header, name) >= 0) return;
+    sh.getRange(1, sh.getLastColumn() + 1).setValue(name);
+  });
+}
+
+function areaKey(area) {
+  const a = String(area || "").trim();
+  if (a === "田區") return "田間";
+  return a;
 }
 
 function punchSheet() {
@@ -648,7 +662,7 @@ function handleListPunches(body) {
       time: timeText,
       name: who,
       type: String(row[colIndex(header, "類型") >= 0 ? colIndex(header, "類型") : 2] || "").trim(),
-      area: String(row[colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3] || ""),
+      area: areaKey(String(row[colIndex(header, "區域") >= 0 ? colIndex(header, "區域") : 3] || "")),
       source: colIndex(header, "來源") >= 0 ? String(row[colIndex(header, "來源")] || "") : "",
       status: iStatus >= 0 ? String(row[iStatus] || "") : "",
       lunch: colIndex(header, "午休") >= 0 ? String(row[colIndex(header, "午休")] || "") : "",
@@ -681,15 +695,18 @@ function handleVoidPunch(body) {
 
 function handleSetLunch(body) {
   const sh = punchSheet();
-  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) {
-    return String(h || "").trim();
-  });
+  const header = sheetHeaderRow(sh);
   const iLunch = colIndex(header, "午休");
   const iStatus = colIndex(header, "狀態");
+  const iDate = colIndex(header, "日期");
+  const iName = colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : colIndex(header, "姓名");
+  const iArea = colIndex(header, "區域");
+  const iType = colIndex(header, "類型");
   const lunchCol = iLunch >= 0 ? iLunch + 1 : 8;
   const statusCol = iStatus >= 0 ? iStatus + 1 : 7;
   const items = Array.isArray(body.items) ? body.items : [];
   let count = 0;
+  const confirmedRows = [];
   for (let i = 0; i < items.length; i++) {
     const row = Number(items[i].id);
     if (!row || row < 2) continue;
@@ -700,7 +717,31 @@ function handleSetLunch(body) {
       sh.getRange(row, lunchCol).setValue(label === "" ? "無" : label);
     }
     sh.getRange(row, statusCol).setValue("已確認");
+    confirmedRows.push(row);
     count++;
+  }
+  if (confirmedRows.length && iDate >= 0 && iName >= 0 && iArea >= 0 && iType >= 0) {
+    const values = sh.getDataRange().getValues();
+    const displays = sh.getDataRange().getDisplayValues();
+    const keys = {};
+    confirmedRows.forEach(function (r) {
+      const row = values[r - 1];
+      if (!row) return;
+      const day = cellDayKey(row[iDate], displays[r - 1] ? displays[r - 1][iDate] : "");
+      keys[day + "|" + String(row[iName] || "").trim() + "|" + areaKey(row[iArea])] = true;
+    });
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const type = String(row[iType] || "").trim();
+      if (type !== "上班" && type !== "下班") continue;
+      const st = String(iStatus >= 0 ? row[iStatus] || "" : "").trim();
+      if (st === "作廢" || st === "已確認") continue;
+      const day = cellDayKey(row[iDate], displays[i] ? displays[i][iDate] : "");
+      const key = day + "|" + String(row[iName] || "").trim() + "|" + areaKey(row[iArea]);
+      if (!keys[key]) continue;
+      sh.getRange(i + 1, statusCol).setValue("已確認");
+      count++;
+    }
   }
   return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });
 }

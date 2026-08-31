@@ -485,11 +485,40 @@ function guessedLunchFromTimes(inTime, outTime) {
   return crossesNoon(inTime, outTime) ? "1" : "無";
 }
 
+function sameArea(a, b) {
+  const n = (x) => (String(x || "").trim() === "田區" ? "田間" : String(x || "").trim());
+  return n(a) === n(b);
+}
+
+function isPendingPunchRow(row) {
+  const st = String(row.status || "").trim();
+  const src = String(row.source || "").trim();
+  if (st === "作廢") return false;
+  return st === "待確認" || (st === "" && src !== "會計補打卡");
+}
+
 function lastPunchRow(dayRows, area, type) {
   const hits = dayRows.filter((row) => {
-    return String(row.area || "").trim() === area && String(row.type || "").trim() === type;
+    return sameArea(row.area, area) && String(row.type || "").trim() === type;
   });
   return hits.length ? hits[hits.length - 1] : null;
+}
+
+function pendingConfirmItems(dayRows, area) {
+  const items = [];
+  dayRows.forEach((row) => {
+    if (!sameArea(row.area, area)) return;
+    const type = String(row.type || "").trim();
+    if (type !== "上班" && type !== "下班") return;
+    if (!isPendingPunchRow(row)) return;
+    const item = { id: Number(row.id) };
+    if (type === "上班") {
+      const out = lastPunchRow(dayRows, area, "下班");
+      item.lunchHours = lunchValue(guessedLunchFromTimes(row.time, out && out.time));
+    }
+    items.push(item);
+  });
+  return items;
 }
 
 function guessedLunchOpt(dayRows, area) {
@@ -746,7 +775,7 @@ function isPayCounted(row) {
 }
 
 function areaShiftStatus(dayRows, area) {
-  const list = dayRows.filter((row) => String(row.area || "").trim() === area);
+  const list = dayRows.filter((row) => sameArea(row.area, area));
   const ins = list.filter((row) => String(row.type || "").trim() === "上班").length;
   const outs = list.filter((row) => String(row.type || "").trim() === "下班").length;
   if (ins >= 1 && outs >= 1 && ins === outs) return "";
@@ -805,7 +834,7 @@ function lunchText(row) {
 function lunchAreaStatus(dayRows, area) {
   if (isNoWorkArea(dayRows, area)) return { label: "無上班", kind: "done", id: "" };
   const ins = dayRows.filter((row) => {
-    return String(row.area || "").trim() === area && String(row.type || "").trim() === "上班";
+    return sameArea(row.area, area) && String(row.type || "").trim() === "上班";
   });
   if (!ins.length) return { label: "先補上班", kind: "need", id: "" };
   const hit = ins[ins.length - 1];
@@ -819,7 +848,7 @@ function lunchAreaStatus(dayRows, area) {
 function itemPunchStatus(dayRows, area, type) {
   if (isNoWorkArea(dayRows, area)) return { label: "無上班", kind: "done", time: "", id: "" };
   const hits = dayRows.filter((row) => {
-    return String(row.area || "").trim() === area && String(row.type || "").trim() === type;
+    return sameArea(row.area, area) && String(row.type || "").trim() === type;
   });
   if (!hits.length) return { label: "須補卡", kind: "need", time: "", id: "" };
   const hit = hits[hits.length - 1];
@@ -836,14 +865,14 @@ function isNoWorkArea(dayRows, area) {
   return dayRows.some((row) => {
     if (String(row.type || "").trim() !== "無上班" || !isPayCounted(row)) return false;
     const rowArea = String(row.area || "").trim();
-    return rowArea === area || rowArea === "－" || rowArea === "" || rowArea === "全日";
+    return sameArea(rowArea, area) || rowArea === "－" || rowArea === "" || rowArea === "全日";
   });
 }
 
 function areaHasPunch(dayRows, area) {
   return dayRows.some((row) => {
     if (String(row.status || "").trim() === "作廢") return false;
-    if (String(row.area || "").trim() !== area) return false;
+    if (!sameArea(row.area, area)) return false;
     const type = String(row.type || "").trim();
     return type === "上班" || type === "下班";
   });
@@ -1070,7 +1099,7 @@ function addLine(td, text, className) {
   td.append(line);
 }
 
-function appendStatusCell(td, item) {
+function appendStatusCell(td, item, dayRows) {
   if (item.label === "無上班" && item.kind === "done") {
     addLine(td, "無上班", "punch-line punch-status-line");
     return;
@@ -1097,11 +1126,11 @@ function appendStatusCell(td, item) {
     btn.className = "choice";
     btn.textContent = "確認";
     btn.addEventListener("click", () => {
-      if (item.type === "上班") {
-        confirmRosterItems([{ id: item.id, lunchHours: lunchValue("無") }]);
-      } else {
-        confirmRosterItems([{ id: item.id }]);
+      const items = pendingConfirmItems(dayRows, item.area);
+      if (!items.length && item.id) {
+        items.push(item.type === "上班" ? { id: item.id, lunchHours: lunchValue("無") } : { id: item.id });
       }
+      confirmRosterItems(items);
     });
     td.append(btn);
   }
@@ -1161,7 +1190,7 @@ function renderRoster(who, rows, iso) {
       item.area = area;
       item.type = type;
       const td = document.createElement("td");
-      appendStatusCell(td, item);
+      appendStatusCell(td, item, dayRows);
       tr.append(td);
     });
     const lunch = lunchAreaStatus(dayRows, area);
