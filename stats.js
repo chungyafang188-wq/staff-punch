@@ -132,56 +132,7 @@ function segmentCells(seg) {
   ];
 }
 
-function sumNum(rows, key) {
-  return rows.reduce((n, row) => {
-    const v = Number(row[key]);
-    return n + (isFinite(v) ? v : 0);
-  }, 0);
-}
-
-function summaryFooter(rows) {
-  return [
-    "加總",
-    hoursText(sumNum(rows, "fieldHours")),
-    hoursText(sumNum(rows, "factoryHours")),
-    hoursText(sumNum(rows, "hours")),
-    sumNum(rows, "days"),
-  ];
-}
-
-function personFooter(rows) {
-  return [
-    "加總",
-    "",
-    "",
-    hoursText(sumNum(rows, "fieldHours")),
-    hoursText(sumNum(rows, "factoryHours")),
-    hoursText(sumNum(rows, "lunchHours")),
-    hoursText(sumNum(rows, "hours")),
-    sumNum(rows, "days"),
-  ];
-}
-
-function detailFooter(segments) {
-  const gross = segments.reduce((n, seg) => {
-    const v = seg.grossHours != null ? seg.grossHours : seg.hours;
-    return n + (Number(v) || 0);
-  }, 0);
-  return [
-    "加總",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    hoursText(gross),
-    hoursText(sumNum(segments, "lunchHours")),
-    hoursText(sumNum(segments, "hours")),
-  ];
-}
-
-function appendTable(parent, title, headers, rows, tableClass, footer) {
+function appendTable(parent, title, headers, rows, tableClass) {
   const block = document.createElement("div");
   block.className = "table-wrap";
   if (title) {
@@ -199,18 +150,6 @@ function appendTable(parent, title, headers, rows, tableClass, footer) {
     tbody.append(tr);
   });
   table.append(tbody);
-  if (footer && footer.length) {
-    const tfoot = document.createElement("tfoot");
-    const tr = document.createElement("tr");
-    tr.className = "stats-total";
-    footer.forEach((x) => {
-      const td = document.createElement("td");
-      td.textContent = String(x ?? "");
-      tr.append(td);
-    });
-    tfoot.append(tr);
-    table.append(tfoot);
-  }
   block.append(table);
   parent.append(block);
 }
@@ -267,14 +206,13 @@ exportBtn.addEventListener("click", () => {
         [],
         PERSON_HEADERS,
         ...lastExport.rows.map(personCells),
-        personFooter(lastExport.rows),
       ],
     },
   ];
   if (lastExport.segments.length) {
     sheets.push({
       name: "工時明細",
-      rows: [DETAIL_HEADERS, ...lastExport.segments.map(segmentCells), detailFooter(lastExport.segments)],
+      rows: [DETAIL_HEADERS, ...lastExport.segments.map(segmentCells)],
     });
   }
   downloadExcel(`出勤統計_${from}_${to}.xls`, sheets);
@@ -316,17 +254,29 @@ document.getElementById("run").addEventListener("click", async () => {
       names: [...selected],
     });
     const people = data.people ?? 0;
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    const segments = Array.isArray(data.segments) ? data.segments : [];
+    const rows = (Array.isArray(data.rows) ? data.rows : []).slice().sort((a, b) => {
+      const ka = punchTimeKey(a.clockInAt || "", "");
+      const kb = punchTimeKey(b.clockInAt || "", "");
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant");
+    });
+    const segments = (Array.isArray(data.segments) ? data.segments : []).slice().sort((a, b) => {
+      const ka = punchTimeKey(a.date, a.clockInTime || a.payInTime || "");
+      const kb = punchTimeKey(b.date, b.clockInTime || b.payInTime || "");
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      const na = String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant");
+      if (na) return na;
+      return String(a.area || "").localeCompare(String(b.area || ""), "zh-Hant");
+    });
     lastExport = { from, to, people, rows, segments };
     const rangeLabel = from === to ? from : from + " ～ " + to;
     setStatus(statusEl, rangeLabel + "　出勤人數：" + people, "ok");
     const cap = document.createElement("p");
     cap.className = "hint";
-    cap.textContent = "期間 " + rangeLabel + "，各員工田間與工廠工時（已扣午休）。";
+    cap.textContent = "期間 " + rangeLabel + "，各員工田間與工廠工時（已扣午休）。依上班時間排序。";
     resultEl.append(cap);
     if (rows.length) {
-      appendTable(resultEl, "", SUMMARY_HEADERS, rows.map(summaryCells), "", summaryFooter(rows));
+      appendTable(resultEl, "", SUMMARY_HEADERS, rows.map(summaryCells));
     }
     if (!segments.length) {
       const p = document.createElement("p");
@@ -336,7 +286,7 @@ document.getElementById("run").addEventListener("click", async () => {
     }
     detailBox.hidden = false;
     if (segments.length) {
-      appendTable(detailResultEl, "", DETAIL_HEADERS, segments.map(segmentCells), "punch-table", detailFooter(segments));
+      appendTable(detailResultEl, "", DETAIL_HEADERS, segments.map(segmentCells), "punch-table");
     } else {
       const empty = document.createElement("p");
       empty.className = "hint";

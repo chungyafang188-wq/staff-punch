@@ -1,4 +1,18 @@
 const STAFF = ["武", "定", "好", "青", "山", "香"];
+const AREAS = ["田間", "工廠", "家鑫調工"];
+
+function areaKey(area) {
+  const a = String(area || "").trim();
+  if (a === "田區") return "田間";
+  if (a === "家鑫") return "家鑫調工";
+  return a;
+}
+
+function areaLabel(area) {
+  const a = areaKey(area);
+  if (a === "田間") return "田區";
+  return a;
+}
 const DEFAULT_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycby4o7nIzUggoJVDsmg7lCD2XZ7f4abKo5qLGEyxLvh5Cff6Sh-nCs8aR9x2t5NrH1uO0g/exec";
 const OLD_SCRIPT_URLS = [
@@ -83,6 +97,19 @@ function parseTypedTime(value) {
   }
   if (!isFinite(h) || !isFinite(m) || !isFinite(s) || h > 23 || m > 59 || s > 59) return "";
   return pad2(h) + ":" + pad2(m) + ":" + pad2(s);
+}
+
+function punchTimeKey(dateText, timeText) {
+  const raw = (String(dateText || "") + " " + String(timeText || "")).trim();
+  const m = raw.match(
+    /(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:\D+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
+  );
+  if (!m) return "9999-99-99T99:99:99";
+  const timePart =
+    m[4] != null
+      ? pad2(Number(m[4])) + ":" + pad2(Number(m[5])) + ":" + pad2(Number(m[6] || 0))
+      : parseTypedTime(timeText) || "99:99:99";
+  return m[1] + "-" + pad2(Number(m[2])) + "-" + pad2(Number(m[3])) + "T" + timePart;
 }
 
 function roundPayTime(timeText) {

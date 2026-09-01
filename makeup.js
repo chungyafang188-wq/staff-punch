@@ -27,6 +27,8 @@ const NEED_ITEMS = [
   ["田間", "下班"],
   ["工廠", "上班"],
   ["工廠", "下班"],
+  ["家鑫調工", "上班"],
+  ["家鑫調工", "下班"],
 ];
 const NOON_SEC = 12 * 3600;
 
@@ -528,7 +530,12 @@ function guessedLunchFromTimes(inTime, outTime) {
 }
 
 function sameArea(a, b) {
-  const n = (x) => (String(x || "").trim() === "田區" ? "田間" : String(x || "").trim());
+  const n = (x) => {
+    let s = String(x || "").trim();
+    if (s === "田區") s = "田間";
+    if (s === "家鑫") s = "家鑫調工";
+    return s;
+  };
   return n(a) === n(b);
 }
 
@@ -914,7 +921,7 @@ function sortedAreaHits(dayRows, area, type) {
   return dayRows
     .filter((row) => sameArea(row.area, area) && String(row.type || "").trim() === type)
     .slice()
-    .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+    .sort((a, b) => punchTimeKey(a.date, a.time).localeCompare(punchTimeKey(b.date, b.time)));
 }
 
 function pairAreaShifts(dayRows, area) {
@@ -926,6 +933,33 @@ function pairAreaShifts(dayRows, area) {
     pairs.push({ inn: ins[i] || null, out: outs[i] || null });
   }
   return pairs;
+}
+
+function firstClockInKey(dayRows) {
+  let best = "9999-99-99T99:99:99";
+  (dayRows || []).forEach((row) => {
+    if (String(row.type || "").trim() !== "上班") return;
+    if (String(row.status || "").trim() === "作廢") return;
+    const k = punchTimeKey(row.date, row.time);
+    if (k < best) best = k;
+  });
+  return best;
+}
+
+function workAreas() {
+  return typeof AREAS !== "undefined" ? AREAS.slice() : ["田間", "工廠"];
+}
+
+function areasInClockOrder(dayRows) {
+  const list = workAreas();
+  return list.slice().sort((a, b) => {
+    const insA = sortedAreaHits(dayRows, a, "上班")[0];
+    const insB = sortedAreaHits(dayRows, b, "上班")[0];
+    const ka = insA ? punchTimeKey(insA.date, insA.time) : "9999-99-99T99:99:99";
+    const kb = insB ? punchTimeKey(insB.date, insB.time) : "9999-99-99T99:99:99";
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return list.indexOf(a) - list.indexOf(b);
+  });
 }
 
 function itemFromRow(row, type, area, seg) {
@@ -1072,6 +1106,13 @@ function collectIncomplete() {
       const reason = incompleteReason(dayRowsFor(rangeRows, iso, person), iso);
       if (reason) items.push({ iso, person, reason });
     });
+  });
+  items.sort((a, b) => {
+    if (a.iso !== b.iso) return a.iso < b.iso ? -1 : 1;
+    const ka = firstClockInKey(dayRowsFor(rangeRows, a.iso, a.person));
+    const kb = firstClockInKey(dayRowsFor(rangeRows, b.iso, b.person));
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return String(a.person).localeCompare(String(b.person), "zh-Hant");
   });
   return items;
 }
@@ -1280,6 +1321,12 @@ function renderRoster(who, rows, iso) {
     wrap.append(p);
     return;
   }
+  people.sort((a, b) => {
+    const ka = firstClockInKey(dayRowsFor(rows, iso, a));
+    const kb = firstClockInKey(dayRowsFor(rows, iso, b));
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return String(a).localeCompare(String(b), "zh-Hant");
+  });
   if (people.length > 1) appendBatchMakeup(wrap, iso, people, rows);
   people.forEach((person) => appendPersonDay(wrap, person, rows, iso));
 }
@@ -1405,7 +1452,7 @@ function appendPersonDay(wrap, person, rows, iso) {
   table.innerHTML =
     "<thead><tr><th>區域／段</th><th>上班</th><th>下班</th><th>午休（扣該段工時）</th></tr></thead>";
   const tbody = document.createElement("tbody");
-  ["田間", "工廠"].forEach((area) => {
+  areasInClockOrder(dayRows).forEach((area) => {
     const areaLabel = area === "田間" ? "田區" : area;
     if (isNoWorkArea(dayRows, area)) {
       const tr = document.createElement("tr");

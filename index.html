@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1b5e3b" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>員工打卡</title>
-    <link rel="stylesheet" href="./styles.css?v=4" />
+    <link rel="stylesheet" href="./styles.css?v=23" />
   </head>
   <body>
     <div class="app punch-app">
@@ -31,16 +31,17 @@
 
       <section>
         <h2>區域</h2>
-        <div class="row">
+        <div class="row area-row">
           <button type="button" class="choice" data-kind="area" data-value="田間">田間</button>
           <button type="button" class="choice" data-kind="area" data-value="工廠">工廠</button>
+          <button type="button" class="choice" data-kind="area" data-value="家鑫調工">家鑫調工</button>
         </div>
       </section>
 
       <button type="button" id="submit" class="submit">送出打卡</button>
       <p id="status" class="status punch-status"></p>
     </div>
-    <script src="./staff.js?v=14"></script>
-    <script src="./punch.js?v=4"></script>
+    <script src="./staff.js?v=16"></script>
+    <script src="./punch.js?v=5"></script>
   </body>
 </html>
