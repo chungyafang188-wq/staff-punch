@@ -1159,11 +1159,6 @@ function appendLunchChoices(cell, id, selectedOpt, extraIds) {
         el.classList.remove("on", "lunch-none", "lunch-yes");
       });
       btn.classList.add("on", opt === "無" ? "lunch-none" : "lunch-yes");
-      const items = [{ id, lunchHours: lunchValue(opt) }];
-      (extraIds || []).forEach((extraId) => {
-        if (extraId && extraId !== id) items.push({ id: extraId });
-      });
-      confirmRosterItems(items);
     });
     cell.append(btn);
   });
@@ -1236,14 +1231,12 @@ function appendStatusCell(td, item, dayRows) {
   if (item.kind === "pending" && item.id) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "choice";
+    btn.className = "choice confirm-pick on";
+    btn.dataset.punchId = String(item.id);
+    btn.dataset.punchType = item.type || "";
     btn.textContent = "確認";
     btn.addEventListener("click", () => {
-      const items = pendingConfirmItems(dayRows, item.area);
-      if (!items.length && item.id) {
-        items.push(item.type === "上班" ? { id: item.id, lunchHours: lunchValue("無") } : { id: item.id });
-      }
-      confirmRosterItems(items);
+      btn.classList.toggle("on");
     });
     td.append(btn);
   }
@@ -1376,36 +1369,53 @@ function renderRoster(who, rows, iso) {
   });
   table.append(tbody);
   box.append(table);
+  const sendHint = document.createElement("p");
+  sendHint.className = "hint";
+  sendHint.textContent = "補卡時間與打卡確認共用同一個送出。先選午休、點亮要確認的上下班，再按一次。";
+  box.append(sendHint);
   const send = document.createElement("button");
   send.type = "button";
   send.className = "submit";
-  send.textContent = "送出補卡時間";
+  send.textContent = "送出";
   send.addEventListener("click", () => submitPersonMakeup(iso, person, box, dayRows));
   box.append(send);
   wrap.append(box);
 }
 
-async function confirmRosterItems(items, quiet) {
+function collectPendingConfirms(wrap) {
+  const items = [];
+  wrap.querySelectorAll(".confirm-pick.on").forEach((btn) => {
+    const id = btn.dataset.punchId;
+    if (!id) return;
+    const item = { id };
+    if (btn.dataset.punchType === "上班") {
+      const tr = btn.closest("tr");
+      const sel = tr ? tr.querySelector("select.lunch-input") : null;
+      item.lunchHours = lunchValue(sel ? sel.value : "無");
+    }
+    items.push(item);
+  });
+  return items;
+}
+
+async function confirmRosterItems(items, quiet, skipReload) {
   const packed = (items || []).filter((item) => punchRowNumber(item.id) >= 2);
   if (!packed.length) {
-    setStatus(makeupStatusEl, "找不到要確認的列，請重新載入後再試", "err");
-    return;
+    if (!quiet) setStatus(makeupStatusEl, "找不到要確認的列，請重新載入後再試", "err");
+    return 0;
   }
-  if (!quiet) setStatus(makeupStatusEl, "正在確認…");
-  try {
-    const data = await postScript({
-      action: "setLunch",
-      items: packed,
-    });
-    if (!data.count) {
-      setStatus(makeupStatusEl, "確認沒有寫入。請把最新 Code.gs 貼上 Apps Script 並發新版本", "err");
-      return;
-    }
-    if (!quiet) setStatus(makeupStatusEl, "已確認。", "ok");
-    await loadRoster();
-  } catch (err) {
-    setStatus(makeupStatusEl, err instanceof Error ? err.message : "確認失敗", "err");
+  if (!quiet) setStatus(makeupStatusEl, "正在寫入確認…");
+  const data = await postScript({
+    action: "setLunch",
+    items: packed,
+  });
+  if (!data.count) {
+    setStatus(makeupStatusEl, "確認沒有寫入。請把最新 Code.gs 貼上 Apps Script 並發新版本", "err");
+    return 0;
   }
+  if (!quiet) setStatus(makeupStatusEl, "已確認 " + data.count + " 筆。", "ok");
+  if (!skipReload) await loadRoster();
+  return data.count || packed.length;
 }
 
 function lunchFieldValue(wrap, area, seg) {
@@ -1475,40 +1485,41 @@ async function submitPersonMakeup(iso, person, wrap, dayRows) {
     setStatus(makeupStatusEl, entries.dup, "err");
     return;
   }
-  if (!entries.length) {
-    const lunchItems = [];
-    wrap.querySelectorAll("select.lunch-input[data-punch-id]").forEach((sel) => {
-      lunchItems.push({ id: sel.dataset.punchId, lunchHours: lunchValue(sel.value) });
-    });
-    if (!lunchItems.length) {
-      setStatus(makeupStatusEl, "請填時間，或按該區無上班", "err");
-      return;
-    }
-    await confirmRosterItems(lunchItems);
+  const confirmItems = collectPendingConfirms(wrap);
+  if (!entries.length && !confirmItems.length) {
+    setStatus(makeupStatusEl, "請填補卡時間，或點亮要確認的上下班後再按送出", "err");
     return;
   }
-  setStatus(makeupStatusEl, "正在補卡…");
+  setStatus(makeupStatusEl, "正在一次寫入…");
   try {
-    const data = await postScript({
-      action: "punch",
-      names: [person],
-      source: "會計補打卡",
-      dayEntries: [{ date: slashDate(iso), entries }],
-    });
-    rememberMakeupDate(iso);
-    makeupDateEl.value = iso;
-    if (!data.count) {
-      setStatus(makeupStatusEl, person + " 畫面顯示送出，但試算表寫入 0 筆。請把最新 Code.gs 發新版本。", "err");
-      return;
+    let punchCount = 0;
+    if (entries.length) {
+      const data = await postScript({
+        action: "punch",
+        names: [person],
+        source: "會計補打卡",
+        dayEntries: [{ date: slashDate(iso), entries }],
+      });
+      rememberMakeupDate(iso);
+      makeupDateEl.value = iso;
+      if (!data.count) {
+        setStatus(makeupStatusEl, person + " 畫面顯示送出，但試算表寫入 0 筆。請把最新 Code.gs 發新版本。", "err");
+        return;
+      }
+      punchCount = data.count;
     }
-    setStatus(
-      makeupStatusEl,
-      person + " 已寫入 " + data.count + " 筆到「" + (data.sheetName || "打卡") + "」" + slashDate(iso) + "。正在重新載入…",
-      "ok",
-    );
+    let confirmCount = 0;
+    if (confirmItems.length) {
+      confirmCount = await confirmRosterItems(confirmItems, true, true);
+      if (!confirmCount && !punchCount) return;
+    }
+    const bits = [];
+    if (punchCount) bits.push("補卡 " + punchCount + " 筆");
+    if (confirmCount) bits.push("確認 " + confirmCount + " 筆");
+    setStatus(makeupStatusEl, person + " " + slashDate(iso) + " 已一次寫入：" + bits.join("、"), "ok");
     await loadRoster();
   } catch (err) {
-    setStatus(makeupStatusEl, err instanceof Error ? err.message : "補卡失敗", "err");
+    setStatus(makeupStatusEl, err instanceof Error ? err.message : "送出失敗", "err");
   }
 }
 

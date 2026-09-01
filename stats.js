@@ -8,6 +8,8 @@ const dayEl = document.getElementById("day");
 const dayWrap = document.getElementById("day-wrap");
 const rangeWrap = document.getElementById("range-wrap");
 const exportBtn = document.getElementById("export-excel");
+const detailBox = document.getElementById("detail-box");
+const detailResultEl = document.getElementById("detail-result");
 
 let periodKind = "day";
 
@@ -36,7 +38,8 @@ document.querySelectorAll("[data-period]").forEach((btn) => {
   });
 });
 
-const PERSON_HEADERS = ["員工", "上班時間", "下班時間", "田區時數", "工廠時數", "午休", "合計時數", "出勤日數"];
+const SUMMARY_HEADERS = ["員工", "田間時數", "工廠時數", "合計時數", "出勤日數"];
+const PERSON_HEADERS = ["員工", "上班時間", "下班時間", "田間時數", "工廠時數", "午休", "合計時數", "出勤日數"];
 const DETAIL_HEADERS = ["日期", "員工", "區域", "上班時間", "下班時間", "計薪上班", "計薪下班", "毛時數", "午休", "實工時"];
 let lastExport = null;
 
@@ -91,6 +94,16 @@ function downloadExcel(filename, sheets) {
   URL.revokeObjectURL(a.href);
 }
 
+function summaryCells(row) {
+  return [
+    row.name,
+    hoursText(row.fieldHours),
+    hoursText(row.factoryHours),
+    hoursText(row.hours),
+    row.days ?? 0,
+  ];
+}
+
 function personCells(row) {
   return [
     row.name,
@@ -119,12 +132,16 @@ function segmentCells(seg) {
   ];
 }
 
-function appendTable(title, headers, rows) {
+function appendTable(parent, title, headers, rows, tableClass) {
   const block = document.createElement("div");
   block.className = "table-wrap";
-  const h = document.createElement("h2");
-  h.textContent = title;
+  if (title) {
+    const h = document.createElement("h2");
+    h.textContent = title;
+    block.append(h);
+  }
   const table = document.createElement("table");
+  if (tableClass) table.className = tableClass;
   table.innerHTML = `<thead><tr>${headers.map((x) => `<th>${x}</th>`).join("")}</tr></thead>`;
   const tbody = document.createElement("tbody");
   rows.forEach((cells) => {
@@ -133,8 +150,8 @@ function appendTable(title, headers, rows) {
     tbody.append(tr);
   });
   table.append(tbody);
-  block.append(h, table);
-  resultEl.append(block);
+  block.append(table);
+  parent.append(block);
 }
 
 const selected = new Set();
@@ -225,7 +242,9 @@ document.getElementById("run").addEventListener("click", async () => {
   }
   setStatus(statusEl, "統計中…");
   resultEl.innerHTML = "";
-  exportBtn.hidden = true;
+  detailResultEl.innerHTML = "";
+  detailBox.hidden = true;
+  detailBox.open = false;
   lastExport = null;
   try {
     const data = await postScript({
@@ -238,28 +257,30 @@ document.getElementById("run").addEventListener("click", async () => {
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const segments = Array.isArray(data.segments) ? data.segments : [];
     lastExport = { from, to, people, rows, segments };
-    setStatus(statusEl, `期間出勤人數：${people}。時數由成對的上班、下班計算。`, "ok");
-    if (data.spreadsheetUrl) {
-      const link = document.createElement("p");
-      link.innerHTML = `<a href="${data.spreadsheetUrl}" target="_blank" rel="noreferrer">開啟員工出勤統計表</a>`;
-      resultEl.append(link);
-    }
+    const rangeLabel = from === to ? from : from + " ～ " + to;
+    setStatus(statusEl, rangeLabel + "　出勤人數：" + people, "ok");
+    const cap = document.createElement("p");
+    cap.className = "hint";
+    cap.textContent = "期間 " + rangeLabel + "，各員工田間與工廠工時（已扣午休）。";
+    resultEl.append(cap);
     if (rows.length) {
-      appendTable(
-        "人別時數",
-        PERSON_HEADERS,
-        rows.map(personCells),
-      );
+      appendTable(resultEl, "", SUMMARY_HEADERS, rows.map(summaryCells));
     }
-    if (segments.length) {
-      appendTable("工時明細", DETAIL_HEADERS, segments.map(segmentCells));
-    } else {
+    if (!segments.length) {
       const p = document.createElement("p");
       p.className = "hint";
-      p.textContent = "這段期間沒有成對的上班／下班，所以沒有時數。請確認打卡有上、下班各一筆。";
+      p.textContent = "這段期間沒有成對的上班／下班，所以沒有時數。";
       resultEl.append(p);
     }
-    exportBtn.hidden = false;
+    detailBox.hidden = false;
+    if (segments.length) {
+      appendTable(detailResultEl, "", DETAIL_HEADERS, segments.map(segmentCells), "punch-table");
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "沒有可列出的上下班明細。";
+      detailResultEl.append(empty);
+    }
   } catch (err) {
     setStatus(statusEl, err instanceof Error ? err.message : "統計失敗", "err");
   }

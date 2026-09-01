@@ -315,6 +315,30 @@ th, td {
   overflow-x: auto;
   margin-top: 0.35rem;
 }
+.stats-app {
+  max-width: 28rem;
+}
+.stats-app .table-wrap table {
+  width: 100%;
+  font-size: 0.95rem;
+}
+.stats-detail {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+.stats-detail summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.stats-detail .table-wrap {
+  margin-top: 0.7rem;
+}
+.stats-detail .punch-table {
+  font-size: 0.78rem;
+}
 .punch-table { font-size: 0.8rem; }
 .punch-table tr.voided td {
   color: #cc0000;
