@@ -117,6 +117,7 @@ function ensurePunchHeaders(sh) {
 function areaKey(area) {
   const a = String(area || "").trim();
   if (a === "田區") return "田間";
+  if (a === "家鑫") return "家鑫調工";
   return a;
 }
 
@@ -652,6 +653,7 @@ function emptyPerson(name) {
     lunchHours: 0,
     fieldHours: 0,
     factoryHours: 0,
+    jiaxinHours: 0,
     days: 0,
     present: false,
   };
@@ -681,6 +683,8 @@ function handleStats(body) {
     row.lunchHours = roundHours(row.lunchHours + (seg.lunchHours || 0));
     if (seg.area === "工廠") {
       row.factoryHours = roundHours(row.factoryHours + seg.hours);
+    } else if (seg.area === "家鑫調工") {
+      row.jiaxinHours = roundHours(row.jiaxinHours + seg.hours);
     } else {
       row.fieldHours = roundHours(row.fieldHours + seg.hours);
     }
@@ -728,7 +732,7 @@ function handleStats(body) {
   person.appendRow(["出勤人數", people]);
   person.appendRow(["午休", LUNCH_START + "－" + LUNCH_END]);
   person.appendRow([""]);
-  person.appendRow(["員工", "上班時間", "下班時間", "田區時數", "工廠時數", "午休", "合計時數", "出勤日數"]);
+  person.appendRow(["員工", "上班時間", "下班時間", "田區時數", "工廠時數", "家鑫調工時數", "午休", "合計時數", "出勤日數"]);
   rows.forEach(function (r) {
     person.appendRow([
       r.name,
@@ -736,6 +740,7 @@ function handleStats(body) {
       r.clockOutAt,
       r.fieldHours,
       r.factoryHours,
+      r.jiaxinHours,
       r.lunchHours,
       r.hours,
       r.days,

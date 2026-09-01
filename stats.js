@@ -38,8 +38,8 @@ document.querySelectorAll("[data-period]").forEach((btn) => {
   });
 });
 
-const SUMMARY_HEADERS = ["員工", "田間時數", "工廠時數", "合計時數", "出勤日數"];
-const PERSON_HEADERS = ["員工", "上班時間", "下班時間", "田間時數", "工廠時數", "午休", "合計時數", "出勤日數"];
+const SUMMARY_HEADERS = ["員工", "田間時數", "工廠時數", "家鑫調工時數", "合計時數", "出勤日數"];
+const PERSON_HEADERS = ["員工", "上班時間", "下班時間", "田間時數", "工廠時數", "家鑫調工時數", "午休", "合計時數", "出勤日數"];
 const DETAIL_HEADERS = ["日期", "員工", "區域", "上班時間", "下班時間", "計薪上班", "計薪下班", "毛時數", "午休", "實工時"];
 let lastExport = null;
 
@@ -99,6 +99,7 @@ function summaryCells(row) {
     row.name,
     hoursText(row.fieldHours),
     hoursText(row.factoryHours),
+    hoursText(row.jiaxinHours),
     hoursText(row.hours),
     row.days ?? 0,
   ];
@@ -111,10 +112,40 @@ function personCells(row) {
     row.clockOutAt || "",
     hoursText(row.fieldHours),
     hoursText(row.factoryHours),
+    hoursText(row.jiaxinHours),
     hoursText(row.lunchHours),
     hoursText(row.hours),
     row.days ?? 0,
   ];
+}
+
+function applyAreaHours(rows, segments) {
+  if (!segments.length) {
+    return rows.map((row) => ({
+      ...row,
+      jiaxinHours: Number(row.jiaxinHours) || 0,
+    }));
+  }
+  return rows.map((row) => {
+    const mine = segments.filter((seg) => seg.name === row.name);
+    if (!mine.length) {
+      return {
+        ...row,
+        jiaxinHours: Number(row.jiaxinHours) || 0,
+      };
+    }
+    let fieldHours = 0;
+    let factoryHours = 0;
+    let jiaxinHours = 0;
+    mine.forEach((seg) => {
+      const a = typeof areaKey === "function" ? areaKey(seg.area) : String(seg.area || "").trim();
+      const h = Number(seg.hours) || 0;
+      if (a === "工廠") factoryHours += h;
+      else if (a === "家鑫調工") jiaxinHours += h;
+      else fieldHours += h;
+    });
+    return { ...row, fieldHours, factoryHours, jiaxinHours };
+  });
 }
 
 function segmentCells(seg) {
@@ -268,15 +299,16 @@ document.getElementById("run").addEventListener("click", async () => {
       if (na) return na;
       return String(a.area || "").localeCompare(String(b.area || ""), "zh-Hant");
     });
-    lastExport = { from, to, people, rows, segments };
+    const areaRows = applyAreaHours(rows, segments);
+    lastExport = { from, to, people, rows: areaRows, segments };
     const rangeLabel = from === to ? from : from + " ～ " + to;
     setStatus(statusEl, rangeLabel + "　出勤人數：" + people, "ok");
     const cap = document.createElement("p");
     cap.className = "hint";
-    cap.textContent = "期間 " + rangeLabel + "，各員工田間與工廠工時（已扣午休）。依上班時間排序。";
+    cap.textContent = "期間 " + rangeLabel + "，各員工田間、工廠與家鑫調工工時（已扣午休）。依上班時間排序。";
     resultEl.append(cap);
     if (rows.length) {
-      appendTable(resultEl, "", SUMMARY_HEADERS, rows.map(summaryCells));
+      appendTable(resultEl, "", SUMMARY_HEADERS, areaRows.map(summaryCells));
     }
     if (!segments.length) {
       const p = document.createElement("p");

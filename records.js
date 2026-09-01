@@ -9,7 +9,7 @@ const statusEl = document.getElementById("void-status");
 const linksEl = document.getElementById("void-links");
 const scriptInput = document.getElementById("scriptUrl");
 
-const areaFilter = new Set(["田間", "工廠"]);
+const areaFilter = new Set(["田間", "工廠", "家鑫調工"]);
 const sourceFilter = new Set(["員工打卡"]);
 const typeFilter = new Set(["上班", "下班"]);
 let allRows = [];
@@ -41,18 +41,30 @@ function isPendingRow(row) {
   return st === "待確認" || (st === "" && String(row.source || "").trim() !== "會計補打卡");
 }
 
+function rowArea(row) {
+  return typeof areaKey === "function" ? areaKey(row.area) : String(row.area || "").trim();
+}
+
 function filteredRows() {
   const who = selectedName();
-  return allRows.filter((row) => {
-    if (who && row.name !== who) return false;
-    const source = String(row.source || "").trim() || "員工打卡";
-    if (sourceFilter.size && !sourceFilter.has(source)) return false;
-    const type = String(row.type || "").trim();
-    if ((type === "上班" || type === "下班") && !typeFilter.has(type)) return false;
-    const area = String(row.area || "").trim();
-    if (area === "田間" || area === "工廠") return areaFilter.has(area);
-    return true;
-  });
+  return allRows
+    .filter((row) => {
+      if (who && row.name !== who) return false;
+      const source = String(row.source || "").trim() || "員工打卡";
+      if (sourceFilter.size && !sourceFilter.has(source)) return false;
+      const type = String(row.type || "").trim();
+      if ((type === "上班" || type === "下班") && !typeFilter.has(type)) return false;
+      const area = rowArea(row);
+      if (area === "田間" || area === "工廠" || area === "家鑫調工") return areaFilter.has(area);
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const ka = punchTimeKey(a.date, a.time);
+      const kb = punchTimeKey(b.date, b.time);
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant");
+    });
 }
 
 function renderTable() {
@@ -89,7 +101,7 @@ function renderTable() {
     cb.disabled = isVoidRow(row);
     tdCheck.append(cb);
     tr.append(tdCheck);
-    [shortDate(row.date), hm(row.time), row.name, row.type, row.area, row.source, row.status || (isPendingRow(row) ? "待確認" : "")].forEach((val) => {
+    [shortDate(row.date), hm(row.time), row.name, row.type, typeof areaLabel === "function" ? areaLabel(row.area) : row.area, row.source, row.status || (isPendingRow(row) ? "待確認" : "")].forEach((val) => {
       const td = document.createElement("td");
       td.textContent = String(val ?? "");
       tr.append(td);
@@ -171,7 +183,7 @@ function bindFilter(attr, set) {
         return;
       }
       if (!areaFilter.size) {
-        setStatus(statusEl, "請選區域（田間或工廠）", "err");
+        setStatus(statusEl, "請選區域（田間、工廠或家鑫調工）", "err");
         renderTable();
         return;
       }
@@ -210,7 +222,7 @@ async function loadPunches() {
     return;
   }
   if (!areaFilter.size) {
-    setStatus(statusEl, "請選區域（田間或工廠）", "err");
+    setStatus(statusEl, "請選區域（田間、工廠或家鑫調工）", "err");
     return;
   }
   if (!typeFilter.size) {
