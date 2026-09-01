@@ -15,6 +15,27 @@
 
 工人請只用打卡網址。會計請用補打卡／紀錄／統計網址。
 
+## 架在 Render
+
+這個專案是靜態網頁，不必裝資料庫。在 [Render](https://render.com) 用同一個 GitHub 帳號登入後：
+
+1. **New → Static Site**
+2. 連到倉庫 `chungyafang188-wq/staff-punch`，分支 `master`
+3. Build Command 留空
+4. Publish Directory 填 `.`
+5. Create Static Site
+
+或在 Render 選 **New → Blueprint**，會讀倉庫根目錄的 `render.yaml`。
+
+完成後網址會是類似 `https://staff-punch.onrender.com/`：
+
+- 打卡：`https://你的網址/`
+- 補打卡：`https://你的網址/makeup.html`
+- 紀錄：`https://你的網址/records.html`
+- 統計：`https://你的網址/stats.html`
+
+Google 試算表腳本不用搬到 Render，仍用 Apps Script。
+
 ## 本機預覽
 
 ```bash
