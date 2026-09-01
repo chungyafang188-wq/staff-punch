@@ -274,20 +274,41 @@ STAFF.forEach((person) => {
   btn.className = "chip";
   btn.textContent = person;
   btn.addEventListener("click", () => {
-    makeupSelected.clear();
-    makeupSelected.add(person);
-    makeupView = "day";
+    if (makeupSelected.has(person)) makeupSelected.delete(person);
+    else makeupSelected.add(person);
     if (!makeupDateEl.value) {
       makeupDateEl.value = (makeupToEl && makeupToEl.value) || todayTaipei();
     }
-    syncMakeupViewUi();
-    setStatus(makeupStatusEl, "正在載入 " + person + " 的打卡…");
+    paintStaffChips();
+    if (makeupView === "range") {
+      loadIncomplete().catch((err) => {
+        setStatus(makeupStatusEl, err instanceof Error ? err.message : "無法連線", "err");
+      });
+      return;
+    }
+    const who = [...makeupSelected].join("、");
+    setStatus(makeupStatusEl, who ? "正在載入 " + who + " 的打卡…" : "請再點選員工");
     loadRoster().catch((err) => {
       setStatus(makeupStatusEl, err instanceof Error ? err.message : "無法連線", "err");
     });
   });
   makeupNamesEl.append(btn);
 });
+
+const makeupAllBtn = document.createElement("button");
+makeupAllBtn.type = "button";
+makeupAllBtn.className = "chip";
+makeupAllBtn.dataset.staffAll = "1";
+makeupAllBtn.textContent = "全選";
+makeupAllBtn.addEventListener("click", () => {
+  const allOn = makeupSelected.size === STAFF.length;
+  makeupSelected.clear();
+  if (!allOn) STAFF.forEach((person) => makeupSelected.add(person));
+  paintStaffChips();
+  if (makeupView === "range") loadIncomplete().catch(() => {});
+  else loadRoster().catch(() => {});
+});
+makeupNamesEl.prepend(makeupAllBtn);
 
 document.querySelectorAll("[data-makeup-view]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -1009,12 +1030,16 @@ function dayRowsFor(rows, iso, who) {
 
 function paintStaffChips() {
   makeupNamesEl.querySelectorAll(".chip").forEach((el) => {
+    if (el.dataset.staffAll) {
+      el.classList.toggle("on", makeupSelected.size === STAFF.length);
+      return;
+    }
     const person = el.textContent;
     const kind = chipKindForPerson(person);
     el.classList.toggle("need", kind === "need");
     el.classList.toggle("pending", kind === "pending");
     el.classList.toggle("ok", kind === "ok");
-    el.classList.toggle("on", selectedStaff() === person);
+    el.classList.toggle("on", makeupSelected.has(person));
   });
 }
 
@@ -1039,11 +1064,11 @@ function incompleteReason(dayRows, iso) {
 function collectIncomplete() {
   const from = makeupFromEl.value;
   const to = makeupToEl.value;
-  const who = selectedStaff();
+  const whoSet = makeupSelected.size ? makeupSelected : null;
   const items = [];
   eachIso(from, to).forEach((iso) => {
     STAFF.forEach((person) => {
-      if (who && person !== who) return;
+      if (whoSet && !whoSet.has(person)) return;
       const reason = incompleteReason(dayRowsFor(rangeRows, iso, person), iso);
       if (reason) items.push({ iso, person, reason });
     });
@@ -1069,8 +1094,8 @@ function renderIncompleteList() {
   if (!items.length) {
     const p = document.createElement("p");
     p.className = "status ok";
-    p.textContent = selectedStaff()
-      ? selectedStaff() + " 在這段期間都已完成。"
+    p.textContent = makeupSelected.size
+      ? [...makeupSelected].join("、") + " 在這段期間都已完成。"
       : "這段期間全員都已完成。";
     incompleteWrap.append(p);
     return;
@@ -1247,14 +1272,118 @@ function renderRoster(who, rows, iso) {
   if (!wrap) return;
   wrap.innerHTML = "";
   paintStaffChips();
-  const person = who || selectedStaff();
-  if (!person) {
+  const people = who ? [who] : [...makeupSelected];
+  if (!people.length) {
     const p = document.createElement("p");
     p.className = "hint";
-    p.textContent = "請點上方員工，這裡只顯示該人當天資料。";
+    p.textContent = "請點上方員工。單一日期可複選，填一次時間共同補卡。";
     wrap.append(p);
     return;
   }
+  if (people.length > 1) appendBatchMakeup(wrap, iso, people, rows);
+  people.forEach((person) => appendPersonDay(wrap, person, rows, iso));
+}
+
+function combinedDayRows(rows, iso, people) {
+  const out = [];
+  people.forEach((person) => {
+    dayRowsFor(rows, iso, person).forEach((row) => out.push(row));
+  });
+  return out;
+}
+
+function appendBatchMakeup(wrap, iso, people, rows) {
+  const box = document.createElement("div");
+  box.className = "person-day batch-makeup";
+  const title = document.createElement("h2");
+  title.textContent = "共同補卡　" + people.join("、") + "　" + slashDate(iso);
+  box.append(title);
+  const note = document.createElement("p");
+  note.className = "hint";
+  note.textContent = "填一次上下班與午休，按送出會寫入所有已選員工。下面仍是各人當天資料，可個別確認。";
+  box.append(note);
+  const table = document.createElement("table");
+  table.className = "punch-table roster-table roster-has-need";
+  table.innerHTML =
+    "<thead><tr><th>區域／段</th><th>上班</th><th>下班</th><th>午休（扣該段工時）</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  ["田間", "工廠"].forEach((area) => {
+    const areaLabel = area === "田間" ? "田區" : area;
+    const tr = document.createElement("tr");
+    tr.dataset.area = area;
+    const nameTd = document.createElement("td");
+    const label = document.createElement("div");
+    label.className = "seg-label";
+    label.textContent = areaLabel + " 第1筆";
+    nameTd.append(label);
+    tr.append(nameTd);
+    ["上班", "下班"].forEach((type) => {
+      const td = document.createElement("td");
+      appendNeedInput(td, type, area, 0);
+      tr.append(td);
+    });
+    const lunchTd = document.createElement("td");
+    appendLunchField(lunchTd, area, "無", 0);
+    tr.append(lunchTd);
+    tbody.append(tr);
+    const addTr = document.createElement("tr");
+    const addTd = document.createElement("td");
+    addTd.colSpan = 4;
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "choice";
+    addBtn.textContent = "再加一筆" + areaLabel + "上下班";
+    addBtn.addEventListener("click", () => {
+      const next = tbody.querySelectorAll(`tr[data-area="${area}"]`).length;
+      const extra = document.createElement("tr");
+      extra.dataset.area = area;
+      extra.dataset.extra = "1";
+      const extraName = document.createElement("td");
+      const cap = document.createElement("div");
+      cap.className = "seg-label";
+      cap.textContent = areaLabel + " 第" + (next + 1) + "筆";
+      extraName.append(cap);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "choice shift-remove";
+      del.textContent = "刪除";
+      del.addEventListener("click", () => {
+        extra.remove();
+        tbody.querySelectorAll(`tr[data-area="${area}"]`).forEach((row, i) => {
+          const lab = row.querySelector(".seg-label");
+          if (lab) lab.textContent = areaLabel + " 第" + (i + 1) + "筆";
+        });
+      });
+      extraName.append(del);
+      extra.append(extraName);
+      ["上班", "下班"].forEach((type) => {
+        const td = document.createElement("td");
+        appendNeedInput(td, type, area, next);
+        extra.append(td);
+      });
+      const extraLunch = document.createElement("td");
+      appendLunchField(extraLunch, area, "無", next);
+      extra.append(extraLunch);
+      addTr.before(extra);
+    });
+    addTd.append(addBtn);
+    addTr.append(addTd);
+    tbody.append(addTr);
+  });
+  table.append(tbody);
+  box.append(table);
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "submit";
+  send.textContent = "送出共同補卡";
+  send.addEventListener("click", () => {
+    submitPersonMakeup(iso, people, box, combinedDayRows(rows, iso, people));
+  });
+  box.append(send);
+  wrap.append(box);
+}
+
+function appendPersonDay(wrap, person, rows, iso) {
   const dayRows = dayRowsFor(rows, iso, person);
   const box = document.createElement("div");
   box.className = "person-day";
@@ -1291,8 +1420,8 @@ function renderRoster(who, rows, iso) {
       return;
     }
     const pairs = pairAreaShifts(dayRows, area);
-    const rows = pairs.length ? pairs : [{ inn: null, out: null }];
-    rows.forEach((pair, index) => {
+    const shiftRows = pairs.length ? pairs : [{ inn: null, out: null }];
+    shiftRows.forEach((pair, index) => {
       const tr = document.createElement("tr");
       tr.dataset.area = area;
       const nameTd = document.createElement("td");
@@ -1371,7 +1500,7 @@ function renderRoster(who, rows, iso) {
   box.append(table);
   const sendHint = document.createElement("p");
   sendHint.className = "hint";
-  sendHint.textContent = "補卡時間與打卡確認共用同一個送出。先選午休、點亮要確認的上下班，再按一次。";
+  sendHint.textContent = "此人補卡或確認請按下面送出。多人共同補卡請用最上方的共同補卡。";
   box.append(sendHint);
   const send = document.createElement("button");
   send.type = "button";
@@ -1425,7 +1554,13 @@ function lunchFieldValue(wrap, area, seg) {
   return lunchValue(sel ? sel.value : "無");
 }
 
-async function submitPersonMakeup(iso, person, wrap, dayRows) {
+async function submitPersonMakeup(iso, personOrNames, wrap, dayRows) {
+  const names = Array.isArray(personOrNames) ? personOrNames.filter(Boolean) : [personOrNames].filter(Boolean);
+  const person = names.join("、");
+  if (!names.length) {
+    setStatus(makeupStatusEl, "請先點選員工", "err");
+    return;
+  }
   const entries = [];
   wrap.querySelectorAll(".need-input").forEach((input) => {
     const raw = input.value.trim();
@@ -1466,6 +1601,7 @@ async function submitPersonMakeup(iso, person, wrap, dayRows) {
     seen[stamp] = entry.type;
   }
   (dayRows || []).forEach((row) => {
+    if (names.indexOf(row.name) < 0) return;
     if (String(row.status || "").trim() === "作廢") return;
     if (String(row.type || "").trim() === "無上班") return;
     const mk = hm(row.time);
@@ -1474,7 +1610,8 @@ async function submitPersonMakeup(iso, person, wrap, dayRows) {
       if (!sameArea(row.area, entry.area)) return;
       if (hm(entry.time) !== mk) return;
       entries.dup =
-        "與表上重複：" +
+        row.name +
+        " 與表上重複：" +
         (entry.area === "田間" ? "田區" : entry.area) +
         " " +
         mk +
@@ -1496,7 +1633,7 @@ async function submitPersonMakeup(iso, person, wrap, dayRows) {
     if (entries.length) {
       const data = await postScript({
         action: "punch",
-        names: [person],
+        names: names,
         source: "會計補打卡",
         dayEntries: [{ date: slashDate(iso), entries }],
       });
@@ -1537,11 +1674,13 @@ async function loadRoster() {
       names: [...STAFF],
     });
     rosterRows = Array.isArray(data.rows) ? data.rows : [];
-    const person = selectedStaff();
-    renderRoster(person, rosterRows, iso);
+    renderRoster("", rosterRows, iso);
     const sheetName = data.sheetName || "打卡";
     const scanned = Number(data.scanned || 0);
-    if (person && !dayHasRecord(dayRowsFor(rosterRows, iso, person))) {
+    const people = [...makeupSelected];
+    const person = people.join("、");
+    const missingAll = people.length && people.every((who) => !dayHasRecord(dayRowsFor(rosterRows, iso, who)));
+    if (people.length && missingAll) {
       if (scanned === 0) {
         setStatus(
           makeupStatusEl,

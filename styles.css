@@ -339,6 +339,10 @@ th, td {
 .stats-detail .punch-table {
   font-size: 0.78rem;
 }
+.stats-total td {
+  font-weight: 800;
+  border-top: 2px solid var(--ink);
+}
 .punch-table { font-size: 0.8rem; }
 .punch-table tr.voided td {
   color: #cc0000;
