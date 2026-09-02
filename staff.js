@@ -1,4 +1,4 @@
-const STAFF = ["武", "定", "好", "青", "山", "香"];
+const STAFF = ["武", "定", "好", "青", "山", "香", "阿猜", "阿萍"];
 const AREAS = ["田間", "工廠", "家鑫調工"];
 
 function areaKey(area) {
