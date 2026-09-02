@@ -66,23 +66,20 @@ h2 { margin: 1.1rem 0 0.45rem; font-size: 1rem; }
   color: #8a4b12;
   border-color: #e0b06a;
 }
-#makeup-names .chip.on.pending {
-  background: #f5c78a;
-  color: #6b3508;
-  border-color: #c9842a;
+#makeup-names .chip.ok {
+  background: #e7f4ec;
+  color: #1b5e3b;
+  border-color: #9dd4b4;
 }
-#makeup-names .chip.on {
-  box-shadow: 0 0 0 3px var(--ink);
-}
-#makeup-names .chip.on.need {
-  background: #e89090;
-  color: #6b1212;
-  border-color: #8a1f1f;
-}
+#makeup-names .chip.on,
+#makeup-names .chip.on.need,
+#makeup-names .chip.on.pending,
 #makeup-names .chip.on.ok {
-  background: #9dd4b4;
-  color: #0f3d24;
-  border-color: #1b5e3b;
+  background: var(--green);
+  color: #fff;
+  border-color: #0d3a24;
+  box-shadow: 0 0 0 3px #c6ead4;
+  font-weight: 800;
 }
 
 .submit {
@@ -338,10 +335,6 @@ th, td {
 }
 .stats-detail .punch-table {
   font-size: 0.78rem;
-}
-.stats-total td {
-  font-weight: 800;
-  border-top: 2px solid var(--ink);
 }
 .punch-table { font-size: 0.8rem; }
 .punch-table tr.voided td {

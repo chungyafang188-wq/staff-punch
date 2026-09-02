@@ -1065,15 +1065,19 @@ function dayRowsFor(rows, iso, who) {
 function paintStaffChips() {
   makeupNamesEl.querySelectorAll(".chip").forEach((el) => {
     if (el.dataset.staffAll) {
-      el.classList.toggle("on", makeupSelected.size === STAFF.length);
+      const allOn = makeupSelected.size === STAFF.length;
+      el.classList.toggle("on", allOn);
+      el.setAttribute("aria-pressed", allOn ? "true" : "false");
       return;
     }
     const person = el.textContent;
     const kind = chipKindForPerson(person);
+    const picked = makeupSelected.has(person);
     el.classList.toggle("need", kind === "need");
     el.classList.toggle("pending", kind === "pending");
     el.classList.toggle("ok", kind === "ok");
-    el.classList.toggle("on", makeupSelected.has(person));
+    el.classList.toggle("on", picked);
+    el.setAttribute("aria-pressed", picked ? "true" : "false");
   });
 }
 
