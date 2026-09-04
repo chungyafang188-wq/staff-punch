@@ -189,11 +189,6 @@ async function handleStats(body) {
 }
 
 async function dispatch(body) {
-  try {
-    await store.importIfEmpty(() => google.importFromGoogle(STAFF));
-  } catch (err) {
-    console.error("import skipped", err && err.message ? err.message : err);
-  }
   const action = String((body && (body.action || body.cmd)) || "").trim();
   if (action === "punch") return handlePunch(body);
   if (action === "stats") return handleStats(body);

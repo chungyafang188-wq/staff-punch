@@ -39,10 +39,12 @@ const port = Number(process.env.PORT) || 3000;
 
 store
   .ready()
-  .then(() => store.importIfEmpty(() => google.importFromGoogle(STAFF)))
-  .catch((err) => console.error("startup import", err && err.message ? err.message : err))
+  .catch((err) => console.error("store ready", err && err.message ? err.message : err))
   .finally(() => {
     app.listen(port, () => {
       console.log("staff-punch listening on " + port);
+      store
+        .importIfEmpty(() => google.importFromGoogle(STAFF))
+        .catch((err) => console.error("startup import", err && err.message ? err.message : err));
     });
   });

@@ -1716,7 +1716,7 @@ async function loadRoster() {
   if (!wrap) return;
   const iso = makeupDateEl.value || todayTaipei();
   if (rosterWrap) rosterWrap.hidden = false;
-  wrap.innerHTML = "<p class='hint'>正在連線 Google 載入當天打卡…</p>";
+  wrap.innerHTML = "<p class='hint'>載入當天打卡…</p>";
   try {
     const data = await postScript({
       action: "listPunches",
