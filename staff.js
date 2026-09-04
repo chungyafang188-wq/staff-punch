@@ -159,6 +159,24 @@ async function postScript(payload) {
 }
 
 async function fetchScript(url, payload) {
+  if (location.protocol !== "file:") {
+    try {
+      const res = await fetch("/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        if (data && typeof data.ok === "boolean") return text;
+      } catch {
+        /* 靜態網站沒有 /api，改走 Google */
+      }
+    } catch {
+      /* 本機或舊版 Render 沒有 Node，改走 Google */
+    }
+  }
   const endpoint = new URL(url);
   endpoint.searchParams.set("payload", JSON.stringify(payload));
   let res;
@@ -166,7 +184,7 @@ async function fetchScript(url, payload) {
     res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
   } catch {
     throw new Error(
-      "連不到 Google 腳本。請確認用網址打開頁面，且 Apps Script 網頁應用程式已發新版本、對象選任何人",
+      "連不到伺服器。請用網址打開頁面，不要雙擊 HTML",
     );
   }
   return res.text();

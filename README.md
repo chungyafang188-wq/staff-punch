@@ -15,26 +15,32 @@
 
 工人請只用打卡網址。會計請用補打卡／紀錄／統計網址。
 
-## 架在 Render
+## 架在 Render（請用 Web Service）
 
-這個專案是靜態網頁，不必裝資料庫。在 [Render](https://render.com) 用同一個 GitHub 帳號登入後：
+程式已推到 GitHub。請用 **同一個 GitHub 帳號** 登入 [Render](https://dashboard.render.com)，然後：
 
-1. **New → Static Site**
-2. 連到倉庫 `chungyafang188-wq/staff-punch`，分支 `master`
-3. Build Command 留空
-4. Publish Directory 填 `.`
-5. Create Static Site
+1. 右上角 **New +** → **Web Service**
+2. 連 GitHub，選倉庫 **staff-punch**（若第一次要按 **Connect GitHub** 授權）
+3. 設定如下（多數會自動填）：
+   - Name：`staff-punch`
+   - Region：**Singapore**
+   - Branch：`master`
+   - Runtime：**Node**
+   - Build Command：`npm install`
+   - Start Command：`npm start`
+   - Instance：**Free**
+4. **Deploy Web Service**
 
-或在 Render 選 **New → Blueprint**，會讀倉庫根目錄的 `render.yaml`。
+或 **New → Blueprint**，選這個倉庫，會讀 `render.yaml` 自動建。
 
-完成後網址會是類似 `https://staff-punch.onrender.com/`：
+完成後網址類似 `https://staff-punch.onrender.com`：
 
 - 打卡：`https://你的網址/`
 - 補打卡：`https://你的網址/makeup.html`
 - 紀錄：`https://你的網址/records.html`
 - 統計：`https://你的網址/stats.html`
 
-Google 試算表腳本不用搬到 Render，仍用 Apps Script。
+免費方案約 15 分鐘沒人用會休眠，第一次再開可能等 30～60 秒。資料仍寫 Google 試算表，不必在 Render 填試算表密碼。
 
 ## 本機預覽
 

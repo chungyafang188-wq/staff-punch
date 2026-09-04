@@ -1,0 +1,16 @@
+{
+  "name": "staff-punch",
+  "private": true,
+  "description": "員工打卡：Neon 資料庫 + R2 備份",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.709.0",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

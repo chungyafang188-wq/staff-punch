@@ -65,18 +65,17 @@ function allPunchSheets(ss) {
 
 function punchSheet() {
   const ss = punchBook();
-  const log = ss.getSheetByName("補打登錄");
-  if (log) {
-    log.getRange(1, 1, 1, MAKEUP_LOG_HEADERS.length).setValues([MAKEUP_LOG_HEADERS]);
+  let sh = ss.getSheetByName(PUNCH_SHEET);
+  if (sh && headerLooksLikePunch(sheetHeaderRow(sh))) {
+    return sh;
   }
-  const candidates = allPunchSheets(ss).filter(function (sh) {
-    return sh.getLastRow() > 1;
+  const candidates = allPunchSheets(ss).filter(function (s) {
+    return s.getLastRow() > 1;
   });
   if (candidates.length) {
     ensurePunchHeaders(candidates[0]);
     return candidates[0];
   }
-  let sh = ss.getSheetByName(PUNCH_SHEET);
   if (!sh) sh = ss.insertSheet(PUNCH_SHEET);
   ensurePunchHeaders(sh);
   return sh;
@@ -294,7 +293,6 @@ function writePunchRow(sh, when, name, type, area, source, lunchHours) {
 }
 
 function writePunchCells(sh, dateText, timeText, name, type, area, source, lunchHours) {
-  ensurePunchHeaders(sh);
   const header = sheetHeaderRow(sh);
   const src = source || "員工打卡";
   const lunchText = type === "上班" && lunchHours != null ? lunchLabel(lunchHours) : "";
@@ -362,20 +360,19 @@ function minuteKey(timeText) {
 
 function loadExistingClockKeys(sh) {
   const keys = {};
-  const range = sh.getDataRange();
-  const values = range.getValues();
-  const displays = range.getDisplayValues();
-  if (values.length < 2) return keys;
-  const header = (displays[0] || []).map(function (h) {
-    return String(h || "").trim();
-  });
+  const last = sh.getLastRow();
+  const cols = Math.max(1, Math.min(sh.getLastColumn() || 8, 16));
+  if (last < 2) return keys;
+  const header = sheetHeaderRow(sh);
+  const start = Math.max(2, last - 399);
+  const values = sh.getRange(start, 1, last - start + 1, cols).getValues();
   const iDate = colIndex(header, "日期");
   const iTime = colIndex(header, "時間");
   const iName = colIndex(header, "員工") >= 0 ? colIndex(header, "員工") : colIndex(header, "姓名");
   const iType = colIndex(header, "類型");
   const iArea = colIndex(header, "區域");
   const iStatus = colIndex(header, "狀態");
-  for (let i = 1; i < values.length; i++) {
+  for (let i = 0; i < values.length; i++) {
     const row = values[i];
     const type = String(row[iType >= 0 ? iType : 2] || "").trim();
     if (type === "無上班") continue;
@@ -383,7 +380,7 @@ function loadExistingClockKeys(sh) {
     if (st === "作廢") continue;
     const who = String(row[iName >= 0 ? iName : 1] || "").trim();
     const dateIdx = iDate >= 0 ? iDate : 0;
-    const day = cellDayKey(row[dateIdx], displays[i] ? displays[i][dateIdx] : "");
+    const day = cellDayKey(row[dateIdx], "");
     const timeIdx = iTime >= 0 ? iTime : 1;
     const mk = minuteKey(row[timeIdx]);
     if (!who || !day || !mk) continue;

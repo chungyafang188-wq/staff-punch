@@ -1579,7 +1579,7 @@ function collectPendingConfirms(wrap) {
 }
 
 async function confirmRosterItems(items, quiet, skipReload) {
-  const packed = (items || []).filter((item) => punchRowNumber(item.id) >= 2);
+  const packed = (items || []).filter((item) => punchRowNumber(item.id) >= 1);
   if (!packed.length) {
     if (!quiet) setStatus(makeupStatusEl, "找不到要確認的列，請重新載入後再試", "err");
     return 0;
