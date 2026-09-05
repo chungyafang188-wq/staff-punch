@@ -150,7 +150,8 @@ function dispatch(body) {
   if (action === "setLunch" || action === "setlunch" || action === "confirm") {
     return handleSetLunch(body);
   }
-  if (action === "ping") return json({ ok: true, version: "setLunch-20260831" });
+  if (action === "backupDrive" || action === "backup") return handleBackupDrive(body);
+  if (action === "ping") return json({ ok: true, version: "backupDrive-20260906" });
   return json({
     ok: false,
     error:
@@ -923,4 +924,87 @@ function handleSetLunch(body) {
     count += confirmSheetRows(sheetByNameOrPunch(names[i]), bySheet[names[i]]);
   }
   return json({ ok: true, count: count, spreadsheetUrl: punchBook().getUrl() });
+}
+
+const BACKUP_FOLDER = "員工打卡備份";
+
+function backupFolder() {
+  const it = DriveApp.getFoldersByName(BACKUP_FOLDER);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(BACKUP_FOLDER);
+}
+
+function writeDriveFile(folder, name, text) {
+  const files = folder.getFilesByName(name);
+  if (files.hasNext()) {
+    files.next().setContent(text);
+    return;
+  }
+  folder.createFile(name, text, MimeType.PLAIN_TEXT);
+}
+
+function sheetToBackupRows() {
+  const sh = punchSheet();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const header = sheetHeaderRow(sh);
+  const values = sh.getRange(2, 1, last - 1, Math.max(header.length, 1)).getDisplayValues();
+  const rows = [];
+  for (let i = 0; i < values.length; i++) {
+    const rec = {};
+    for (let c = 0; c < header.length; c++) {
+      rec[header[c]] = values[i][c];
+    }
+    rows.push({
+      date: rec["日期"] || "",
+      time: rec["時間"] || "",
+      name: rec["員工"] || rec["姓名"] || "",
+      type: rec["類型"] || "",
+      area: rec["區域"] || "",
+      source: rec["來源"] || "",
+      status: rec["狀態"] || "",
+      lunch: rec["午休"] || "",
+    });
+  }
+  return rows;
+}
+
+function ensureBackupTrigger() {
+  const fn = "scheduledDriveBackup";
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === fn) return;
+  }
+  ScriptApp.newTrigger(fn).timeBased().everyHours(6).create();
+}
+
+function scheduledDriveBackup() {
+  handleBackupDrive({ rows: sheetToBackupRows() });
+}
+
+function installBackupTrigger() {
+  ensureBackupTrigger();
+}
+
+function handleBackupDrive(body) {
+  ensureBackupTrigger();
+  const packed = body && typeof body === "object" ? body : {};
+  const rows = Array.isArray(packed.rows) && packed.rows.length ? packed.rows : sheetToBackupRows();
+  const stamp = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd HH:mm:ss");
+  const day = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
+  const payload = JSON.stringify({
+    savedAt: stamp,
+    count: rows.length,
+    rows: rows,
+  });
+  const folder = backupFolder();
+  writeDriveFile(folder, "punches-latest.json", payload);
+  writeDriveFile(folder, "punches-" + day + ".json", payload);
+  return json({
+    ok: true,
+    count: rows.length,
+    folder: BACKUP_FOLDER,
+    file: "punches-" + day + ".json",
+    savedAt: stamp,
+  });
 }

@@ -1,0 +1,16 @@
+name: backup-punches
+
+on:
+  schedule:
+    - cron: "20 0,6,12,18 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake site and run backup
+        run: |
+          curl -sS -m 90 -X POST "https://staff-punch.onrender.com/api" \
+            -H "Content-Type: application/json" \
+            -d "{\"action\":\"backup\"}"

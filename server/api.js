@@ -1,6 +1,7 @@
 const logic = require("./logic");
 const store = require("./store");
 const google = require("./google");
+const backup = require("./backup");
 
 const STAFF = ["武", "定", "好", "青", "山", "香", "阿猜", "阿萍"];
 
@@ -195,7 +196,14 @@ async function dispatch(body) {
   if (action === "listPunches") return handleListPunches(body);
   if (action === "voidPunch") return handleVoidPunch(body);
   if (action === "setLunch" || action === "setlunch" || action === "confirm") return handleSetLunch(body);
-  if (action === "ping") return ok({ version: "node-20260904", store: process.env.DATABASE_URL ? "postgres" : "file" });
+  if (action === "backup" || action === "backupDrive") return backup.runBackup(true);
+  if (action === "ping") {
+    return ok({
+      version: "node-20260906-backup",
+      store: process.env.DATABASE_URL ? "postgres" : "file",
+      lastBackup: backup.status(),
+    });
+  }
   return fail("未知動作：" + (action || "空"));
 }
 

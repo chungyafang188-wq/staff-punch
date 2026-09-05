@@ -2,11 +2,12 @@ const express = require("express");
 const { dispatch, STAFF } = require("./server/api");
 const store = require("./server/store");
 const google = require("./server/google");
+const backup = require("./server/backup");
 
 const app = express();
 const root = __dirname;
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: false }));
 
 async function handleApi(req, res) {
@@ -43,6 +44,7 @@ store
   .finally(() => {
     app.listen(port, () => {
       console.log("staff-punch listening on " + port);
+      backup.startScheduler();
       store
         .importIfEmpty(() => google.importFromGoogle(STAFF))
         .catch((err) => console.error("startup import", err && err.message ? err.message : err));

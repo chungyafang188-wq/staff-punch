@@ -5,16 +5,36 @@ function scriptUrl() {
   return (process.env.GOOGLE_SCRIPT_URL || DEFAULT_SCRIPT_URL).trim();
 }
 
-async function googleDispatch(payload) {
-  const endpoint = new URL(scriptUrl());
-  endpoint.searchParams.set("payload", JSON.stringify(payload));
-  const res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
-  const text = await res.text();
+async function parseGoogleText(text) {
   try {
     return JSON.parse(text);
   } catch {
     return { ok: false, error: "Google 備份回傳不是 JSON" };
   }
+}
+
+async function googleDispatch(payload) {
+  const endpoint = new URL(scriptUrl());
+  endpoint.searchParams.set("payload", JSON.stringify(payload));
+  const res = await fetch(endpoint.toString(), { method: "GET", redirect: "follow" });
+  return parseGoogleText(await res.text());
+}
+
+async function googlePost(payload) {
+  const res = await fetch(scriptUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload),
+    redirect: "follow",
+  });
+  return parseGoogleText(await res.text());
+}
+
+async function backupSnapshot(rows) {
+  return googlePost({
+    action: "backupDrive",
+    rows: Array.isArray(rows) ? rows : [],
+  });
 }
 
 function backupLater(payload) {
@@ -109,8 +129,10 @@ async function importFromGoogle(staff) {
 module.exports = {
   scriptUrl,
   googleDispatch,
+  googlePost,
   backupPunch,
   backupVoid,
   backupLunch,
+  backupSnapshot,
   importFromGoogle,
 };
