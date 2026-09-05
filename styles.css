@@ -527,28 +527,108 @@ tr:last-child td { border-bottom: 0; }
   border-radius: 0.85rem;
   min-height: 2.6rem;
 }
+html:has(.makeup-page),
 .makeup-page {
   overflow-x: hidden;
   overscroll-behavior-x: none;
-  max-width: 100vw;
+  max-width: 100%;
+  width: 100%;
   touch-action: manipulation;
 }
 .makeup-page .app {
   overflow-x: hidden;
+  width: 100%;
   max-width: min(42rem, 100%);
+  padding-left: max(0.7rem, env(safe-area-inset-left));
+  padding-right: max(0.7rem, env(safe-area-inset-right));
 }
 .makeup-page input,
 .makeup-page select,
 .makeup-page textarea {
   font-size: 16px;
   max-width: 100%;
+  min-width: 0;
 }
 .makeup-page .result-panel {
   min-height: 8rem;
   scroll-margin-top: 0.6rem;
+  overflow-x: hidden;
 }
 .makeup-page .person-day .submit {
   margin-top: 0.85rem;
+}
+.makeup-page .person-day,
+.makeup-page .batch-makeup {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.makeup-page .person-day .punch-table {
+  width: 100%;
+  table-layout: fixed;
+}
+.makeup-page .person-day .punch-table th,
+.makeup-page .person-day .punch-table td {
+  word-break: break-word;
+}
+.makeup-page .person-day .need-input,
+.makeup-page .person-day .lunch-input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.makeup-page #makeup-names {
+  padding: 4px 2px;
+}
+
+@media (max-width: 640px) {
+  .makeup-page .panel {
+    padding: 0.8rem 0.65rem 0.9rem;
+  }
+  .makeup-page .person-day,
+  .makeup-page .batch-makeup {
+    margin-top: 0.7rem;
+    padding: 0.7rem 0.45rem 0.85rem;
+  }
+  .makeup-page .person-day .punch-table {
+    font-size: 0.82rem;
+  }
+  .makeup-page .person-day .punch-table th,
+  .makeup-page .person-day .punch-table td {
+    padding: 0.4rem 0.18rem;
+    font-size: 0.82rem;
+  }
+  .makeup-page .person-day .punch-table th:nth-child(1),
+  .makeup-page .person-day .punch-table td:nth-child(1) {
+    width: 22%;
+  }
+  .makeup-page .person-day .punch-table th:nth-child(2),
+  .makeup-page .person-day .punch-table td:nth-child(2),
+  .makeup-page .person-day .punch-table th:nth-child(3),
+  .makeup-page .person-day .punch-table td:nth-child(3) {
+    width: 24%;
+  }
+  .makeup-page .person-day .seg-label {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+  .makeup-page .person-day .need-input {
+    height: 2.35rem;
+    font-size: 16px;
+    padding: 0.25rem 0.2rem;
+  }
+  .makeup-page .person-day .lunch-input {
+    font-size: 16px;
+    padding: 0.3rem 0.1rem;
+  }
+  .makeup-page .person-day td .hint {
+    display: none;
+  }
+  .makeup-page .person-day .choice {
+    width: 100%;
+    min-height: 2.15rem;
+    padding: 0.28rem 0.15rem;
+    font-size: 0.78rem;
+  }
 }
 
 @media (max-width: 420px) {

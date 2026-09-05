@@ -1382,7 +1382,7 @@ function appendBatchMakeup(wrap, iso, people, rows) {
   const table = document.createElement("table");
   table.className = "punch-table roster-table roster-has-need";
   table.innerHTML =
-    "<thead><tr><th>區域／段</th><th>上班</th><th>下班</th><th>午休（扣該段工時）</th></tr></thead>";
+    "<thead><tr><th>區域</th><th>上班</th><th>下班</th><th>午休</th></tr></thead>";
   const tbody = document.createElement("tbody");
   ["田間", "工廠"].forEach((area) => {
     const areaLabel = area === "田間" ? "田區" : area;
@@ -1525,7 +1525,7 @@ function appendPersonDay(wrap, person, rows, iso) {
   const table = document.createElement("table");
   table.className = "punch-table roster-table " + (done ? "roster-all-ok" : "roster-has-need");
   table.innerHTML =
-    "<thead><tr><th>區域／段</th><th>上班</th><th>下班</th><th>午休（扣該段工時）</th></tr></thead>";
+    "<thead><tr><th>區域</th><th>上班</th><th>下班</th><th>午休</th></tr></thead>";
   const tbody = document.createElement("tbody");
   areasInClockOrder(dayRows).forEach((area) => {
     const areaLabel = area === "田間" ? "田區" : area;
