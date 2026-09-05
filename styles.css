@@ -450,6 +450,70 @@ tr:last-child td { border-bottom: 0; }
   font-size: 1.05rem;
 }
 
+.makeup-page .view-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+.makeup-page .view-row .choice {
+  width: 100%;
+  text-align: center;
+  font-weight: 800;
+}
+.makeup-page .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  margin: 0.55rem 0 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+.makeup-page .leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.makeup-page .leg::before {
+  content: "";
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.makeup-page .leg.need::before { background: #f4c7c7; border-color: #e0a3a3; }
+.makeup-page .leg.pending::before { background: #fde7c7; border-color: #efc48a; }
+.makeup-page .leg.ok::before { background: #e7f4ec; border-color: #9dd4b4; }
+.makeup-page .leg.picked::before { background: var(--green); border-color: #0d3a24; }
+.makeup-page #makeup-names {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.6rem, 1fr));
+  gap: 0.45rem;
+}
+.makeup-page #makeup-names .chip {
+  width: 100%;
+  text-align: center;
+  min-height: 2.7rem;
+  font-weight: 800;
+}
+.makeup-page .makeup-status {
+  margin: 0.85rem 0 0;
+  padding: 0.7rem 0.85rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  min-height: 2.6rem;
+}
+.makeup-page .result-panel {
+  min-height: 8rem;
+}
+.makeup-page .person-day .submit {
+  margin-top: 0.85rem;
+}
+.makeup-page .incomplete-row:hover td {
+  filter: brightness(0.97);
+}
+
 @media (max-width: 420px) {
   .punch-app .chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .page-tab { font-size: 0.78rem; padding: 0.55rem 0.1rem; }

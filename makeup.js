@@ -1163,6 +1163,8 @@ function renderIncompleteList() {
   hint.className = "hint";
   hint.textContent = "共 " + items.length + " 筆未完成。點列進單日確認或補卡。";
   incompleteWrap.append(hint);
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap";
   const table = document.createElement("table");
   table.className = "punch-table roster-table roster-has-need";
   table.innerHTML = "<thead><tr><th>日期</th><th>員工</th><th>未完成</th></tr></thead>";
@@ -1181,7 +1183,8 @@ function renderIncompleteList() {
     tbody.append(tr);
   });
   table.append(tbody);
-  incompleteWrap.append(table);
+  wrap.append(table);
+  incompleteWrap.append(wrap);
 }
 
 function syncMakeupViewUi() {

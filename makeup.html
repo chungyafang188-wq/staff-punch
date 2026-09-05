@@ -5,25 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1b5e3b" />
     <title>會計補打卡</title>
-    <link rel="stylesheet" href="./styles.css?v=25" />
+    <link rel="stylesheet" href="./styles.css?v=26" />
   </head>
-  <body>
+  <body class="makeup-page">
     <div class="app app-wide">
       <header>
         <nav class="page-tabs" aria-label="會計功能">
-          <a class="page-tab on" href="./makeup.html">會計補打卡</a>
-          <a class="page-tab" href="./records.html">出勤紀錄</a>
-          <a class="page-tab" href="./stats.html">出勤統計</a>
+          <a class="page-tab on" href="./makeup.html">補打卡</a>
+          <a class="page-tab" href="./records.html">紀錄</a>
+          <a class="page-tab" href="./stats.html">統計</a>
         </nav>
         <p class="eyebrow">會計專用</p>
         <h1>會計補打卡</h1>
-        <p class="hint">單一日期可複選員工，填一次時間共同補卡。起迄區間用來找未完成的人。確認後才會進出勤統計。</p>
       </header>
 
       <section class="panel">
-        <h2>當日確認</h2>
-        <p class="hint">圈圈：紅＝當天沒資料、橘＝有打卡尚未完成確認、綠＝當天完成。單一日期請點員工（可複選、可全選）再補卡。</p>
-        <div class="row">
+        <h2>查詢</h2>
+        <div class="row view-row">
           <button type="button" class="choice" data-makeup-view="day">單一日期</button>
           <button type="button" class="choice on" data-makeup-view="range">起迄區間</button>
         </div>
@@ -38,8 +36,26 @@
             <input id="makeup-to" type="date" lang="en" />
           </label>
         </div>
+      </section>
+
+      <section class="panel">
         <h2>員工</h2>
+        <p class="hint">點選變深綠＝已選。紅＝沒打卡、橘＝待確認、淺綠＝當天完成。</p>
+        <div class="legend" aria-hidden="true">
+          <span class="leg need">沒打卡</span>
+          <span class="leg pending">待確認</span>
+          <span class="leg ok">完成</span>
+          <span class="leg picked">已選</span>
+        </div>
         <div id="makeup-names" class="chips"></div>
+      </section>
+
+      <p id="makeup-status" class="status makeup-status"></p>
+      <div id="makeup-links"></div>
+
+      <section class="panel result-panel">
+        <h2>結果</h2>
+        <p class="hint">單一日期：補卡與確認後按送出。起迄區間：點列進該日。家鑫調工預設沒有，需要時再加。</p>
         <div id="incomplete-wrap" hidden></div>
         <div id="roster-wrap"></div>
       </section>
@@ -65,19 +81,16 @@
         <div id="missing-wrap"></div>
       </div>
 
-      <p id="makeup-status" class="status"></p>
-      <div id="makeup-links"></div>
-
       <details class="setup">
         <summary>進階：連到 Google 雲端</summary>
-        <p class="hint">平常不必打開。第一次接到 Google 時再展開並儲存網址。</p>
+        <p class="hint">平常不必打開。備份用，第一次再展開。</p>
         <label>Apps Script 網頁應用程式網址
           <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
         </label>
         <button type="button" id="saveUrl" class="add-shift">儲存網址</button>
       </details>
     </div>
-    <script src="./staff.js?v=17"></script>
-    <script src="./makeup.js?v=40"></script>
+    <script src="./staff.js?v=18"></script>
+    <script src="./makeup.js?v=42"></script>
   </body>
 </html>
