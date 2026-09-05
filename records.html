@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b5e3b" />
     <title>出勤紀錄</title>
-    <link rel="stylesheet" href="./styles.css?v=8" />
+    <link rel="stylesheet" href="./styles.css?v=25" />
   </head>
   <body>
     <div class="app app-wide">
@@ -42,18 +43,18 @@
             <option value="">全部員工</option>
           </select>
         </label>
-        <p class="hint">來源</p>
+        <p class="filter-label">來源</p>
         <div class="row">
           <button type="button" class="choice on" data-source-filter="員工打卡">員工打卡</button>
           <button type="button" class="choice" data-source-filter="會計補打卡">會計補打卡</button>
         </div>
-        <p class="hint">區域</p>
+        <p class="filter-label">區域</p>
         <div class="row">
           <button type="button" class="choice on" data-area-filter="田間">田間</button>
           <button type="button" class="choice on" data-area-filter="工廠">工廠</button>
-          <button type="button" class="choice on" data-area-filter="家鑫調工">家鑫調工</button>
+          <button type="button" class="choice" data-area-filter="家鑫調工">家鑫調工</button>
         </div>
-        <p class="hint">類型</p>
+        <p class="filter-label">類型</p>
         <div class="row">
           <button type="button" class="choice on" data-type-filter="上班">上班</button>
           <button type="button" class="choice on" data-type-filter="下班">下班</button>

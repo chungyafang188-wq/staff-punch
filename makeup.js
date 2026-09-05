@@ -946,12 +946,26 @@ function firstClockInKey(dayRows) {
   return best;
 }
 
+function requiredAreas() {
+  return ["田間", "工廠"];
+}
+
+function extraAreas() {
+  return ["家鑫調工"];
+}
+
 function workAreas() {
-  return typeof AREAS !== "undefined" ? AREAS.slice() : ["田間", "工廠"];
+  return requiredAreas().concat(extraAreas());
+}
+
+function areasShown(dayRows) {
+  return requiredAreas().concat(
+    extraAreas().filter((area) => areaHasPunch(dayRows, area) || isNoWorkArea(dayRows, area)),
+  );
 }
 
 function areasInClockOrder(dayRows) {
-  const list = workAreas();
+  const list = areasShown(dayRows);
   return list.slice().sort((a, b) => {
     const insA = sortedAreaHits(dayRows, a, "上班")[0];
     const insB = sortedAreaHits(dayRows, b, "上班")[0];
@@ -1020,7 +1034,7 @@ function isNoWorkDay(dayRows) {
 }
 
 function personDayDone(dayRows) {
-  return ["田間", "工廠"].every((area) => areaDone(dayRows, area));
+  return areasShown(dayRows).every((area) => areaDone(dayRows, area));
 }
 
 function dayHasRecord(dayRows) {
@@ -1085,7 +1099,7 @@ function incompleteReason(dayRows, iso) {
   if (personDayDone(dayRows)) return "";
   if (!dayHasRecord(dayRows) && iso !== todayTaipei()) return "";
   const bits = [];
-  ["田間", "工廠"].forEach((area) => {
+  areasShown(dayRows).forEach((area) => {
     if (isNoWorkArea(dayRows, area)) return;
     ["上班", "下班"].forEach((type) => {
       const item = itemPunchStatus(dayRows, area, type);
@@ -1423,6 +1437,7 @@ function appendBatchMakeup(wrap, iso, people, rows) {
   });
   table.append(tbody);
   box.append(table);
+  appendJiaxinAdd(box, tbody, combinedDayRows(rows, iso, people));
   const send = document.createElement("button");
   send.type = "button";
   send.className = "submit";
@@ -1432,6 +1447,50 @@ function appendBatchMakeup(wrap, iso, people, rows) {
   });
   box.append(send);
   wrap.append(box);
+}
+
+function appendBlankAreaRows(tbody, area) {
+  const cap = typeof areaLabel === "function" ? areaLabel(area) : area === "田間" ? "田區" : area;
+  const tr = document.createElement("tr");
+  tr.dataset.area = area;
+  tr.dataset.extra = "1";
+  const nameTd = document.createElement("td");
+  const label = document.createElement("div");
+  label.className = "seg-label";
+  label.textContent = cap + " 第1筆";
+  nameTd.append(label);
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "choice shift-remove";
+  del.textContent = "刪除";
+  del.addEventListener("click", () => tr.remove());
+  nameTd.append(del);
+  tr.append(nameTd);
+  ["上班", "下班"].forEach((type) => {
+    const td = document.createElement("td");
+    appendNeedInput(td, type, area, 0);
+    tr.append(td);
+  });
+  const lunchTd = document.createElement("td");
+  appendLunchField(lunchTd, area, "無", 0);
+  tr.append(lunchTd);
+  tbody.append(tr);
+}
+
+function appendJiaxinAdd(box, tbody, dayRows) {
+  extraAreas().forEach((area) => {
+    if (areaHasPunch(dayRows, area) || isNoWorkArea(dayRows, area)) return;
+    if (tbody.querySelector(`tr[data-area="${area}"]`)) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice";
+    btn.textContent = "加上" + area + "上下班";
+    btn.addEventListener("click", () => {
+      appendBlankAreaRows(tbody, area);
+      btn.remove();
+    });
+    box.append(btn);
+  });
 }
 
 function appendPersonDay(wrap, person, rows, iso) {
@@ -1549,6 +1608,7 @@ function appendPersonDay(wrap, person, rows, iso) {
   });
   table.append(tbody);
   box.append(table);
+  appendJiaxinAdd(box, tbody, dayRows);
   const sendHint = document.createElement("p");
   sendHint.className = "hint";
   sendHint.textContent = "此人補卡或確認請按下面送出。多人共同補卡請用最上方的共同補卡。";
