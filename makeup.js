@@ -270,6 +270,14 @@ document.getElementById("add-shift").addEventListener("click", () => {
   renumberShifts(shiftListEl);
 });
 
+function scrollToInputArea() {
+  const target = document.getElementById("makeup-input");
+  if (!target) return;
+  setTimeout(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 80);
+}
+
 STAFF.forEach((person) => {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -283,14 +291,14 @@ STAFF.forEach((person) => {
     }
     paintStaffChips();
     if (makeupView === "range") {
-      loadIncomplete().catch((err) => {
+      loadIncomplete({ scroll: true }).catch((err) => {
         setStatus(makeupStatusEl, err instanceof Error ? err.message : "無法連線", "err");
       });
       return;
     }
     const who = [...makeupSelected].join("、");
     setStatus(makeupStatusEl, who ? "正在載入 " + who + " 的打卡…" : "請再點選員工");
-    loadRoster().catch((err) => {
+    loadRoster({ scroll: true }).catch((err) => {
       setStatus(makeupStatusEl, err instanceof Error ? err.message : "無法連線", "err");
     });
   });
@@ -307,8 +315,8 @@ makeupAllBtn.addEventListener("click", () => {
   makeupSelected.clear();
   if (!allOn) STAFF.forEach((person) => makeupSelected.add(person));
   paintStaffChips();
-  if (makeupView === "range") loadIncomplete().catch(() => {});
-  else loadRoster().catch(() => {});
+  if (makeupView === "range") loadIncomplete({ scroll: true }).catch(() => {});
+  else loadRoster({ scroll: true }).catch(() => {});
 });
 makeupNamesEl.prepend(makeupAllBtn);
 
@@ -1142,7 +1150,7 @@ function openPersonDay(iso, person) {
   syncMakeupViewUi();
   makeupSelected.clear();
   makeupSelected.add(person);
-  loadRoster().catch(() => {});
+  loadRoster({ scroll: true }).catch(() => {});
 }
 
 function renderIncompleteList() {
@@ -1198,7 +1206,7 @@ function syncMakeupViewUi() {
   if (rosterWrap) rosterWrap.hidden = isRange;
 }
 
-async function loadIncomplete() {
+async function loadIncomplete(opts) {
   if (!incompleteWrap) return;
   const from = makeupFromEl && makeupFromEl.value;
   const to = makeupToEl && makeupToEl.value;
@@ -1224,6 +1232,7 @@ async function loadIncomplete() {
     });
     rangeRows = Array.isArray(data.rows) ? data.rows : [];
     renderIncompleteList();
+    if (opts && opts.scroll) scrollToInputArea();
   } catch (err) {
     incompleteWrap.innerHTML = "";
     const p = document.createElement("p");
@@ -1774,7 +1783,7 @@ async function submitPersonMakeup(iso, personOrNames, wrap, dayRows) {
   }
 }
 
-async function loadRoster() {
+async function loadRoster(opts) {
   const wrap = document.getElementById("roster-wrap");
   if (!wrap) return;
   const iso = makeupDateEl.value || todayTaipei();
@@ -1789,6 +1798,7 @@ async function loadRoster() {
     });
     rosterRows = Array.isArray(data.rows) ? data.rows : [];
     renderRoster("", rosterRows, iso);
+    if (opts && opts.scroll && makeupSelected.size) scrollToInputArea();
     const sheetName = data.sheetName || "打卡";
     const scanned = Number(data.scanned || 0);
     const people = [...makeupSelected];

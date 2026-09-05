@@ -2,10 +2,10 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#1b5e3b" />
     <title>會計補打卡</title>
-    <link rel="stylesheet" href="./styles.css?v=30" />
+    <link rel="stylesheet" href="./styles.css?v=31" />
   </head>
   <body class="makeup-page">
     <div class="app app-wide">
@@ -53,7 +53,7 @@
       <p id="makeup-status" class="status makeup-status"></p>
       <div id="makeup-links"></div>
 
-      <section class="panel result-panel">
+      <section class="panel result-panel" id="makeup-input">
         <h2>結果</h2>
         <p class="hint">單一日期：補卡與確認後按送出。起迄區間：點列進該日。家鑫調工預設沒有，需要時再加。</p>
         <div id="incomplete-wrap" hidden></div>
@@ -91,6 +91,6 @@
       </details>
     </div>
     <script src="./staff.js?v=18"></script>
-    <script src="./makeup.js?v=42"></script>
+    <script src="./makeup.js?v=44"></script>
   </body>
 </html>

@@ -527,8 +527,25 @@ tr:last-child td { border-bottom: 0; }
   border-radius: 0.85rem;
   min-height: 2.6rem;
 }
+.makeup-page {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  max-width: 100vw;
+  touch-action: manipulation;
+}
+.makeup-page .app {
+  overflow-x: hidden;
+  max-width: min(42rem, 100%);
+}
+.makeup-page input,
+.makeup-page select,
+.makeup-page textarea {
+  font-size: 16px;
+  max-width: 100%;
+}
 .makeup-page .result-panel {
   min-height: 8rem;
+  scroll-margin-top: 0.6rem;
 }
 .makeup-page .person-day .submit {
   margin-top: 0.85rem;
